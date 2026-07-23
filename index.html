@@ -1520,7 +1520,7 @@ function App(){
         </div>
       )}
 
-      {modal==="ajustes" && (
+ {modal==="ajustes" && (
         <div className="ov" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(null);}}>
           <div className="md" role="dialog" aria-modal="true" aria-label="Ajustes">
             <div className="md-h">
@@ -1542,6 +1542,12 @@ function App(){
       )}
 
       {toast && <div className="toast">{toast}</div>}
+
+      {/* --- CÓDIGO NUEVO AGREGADO AQUÍ --- */}
+      <div className="ft">
+        BY SUPERTIENDAS CAÑAVERAL , Y creadores Felipe Vanegas & Adriana Escobar
+      </div>
+
     </div>
   );
 }
