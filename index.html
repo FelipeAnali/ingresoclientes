@@ -559,7 +559,7 @@ function Barras({datos,labels,objetivo,titulo}){
   const n=datos.length;
   const anchoBarra=Math.min(bw*.72,64);
   const cx=i=>pl+i*bw+bw/2;
-  const paso=n<=16?1:n<=24?2:3;   // cada cuántas etiquetas se muestran
+  const paso = 1;   // mostrar siempre todas las etiquetas
   const fsL=n<=14?12:n<=24?11:10;
   return (
     <div className="cw">
