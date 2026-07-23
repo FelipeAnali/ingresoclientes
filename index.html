@@ -1417,7 +1417,8 @@ function App(){
 
   const panelDatos=(
     <Datos habeas={habeas} anexos={anexos} mapa={mapa} suave={suave} hechos={hechos}
-      onHabeas={setHabeas} onAnexos={addAnexos} onMemoria={guardarMemoria}
+      onHabeas={setHabeas} onAnexos={addAnexos} 
+      onMemoria={cargarMemoria} /* <--- AQUÍ ESTABA EL ERROR (antes decía guardarMemoria) */
       memoria={guardarMemoria} notify={notify} setTab={()=>setModal(null)}
       usarAnexos={usarAnexos} setUsarAnexos={setUsarAnexos}
       guardaLocal={guardaLocal} onLimpiar={()=>{
