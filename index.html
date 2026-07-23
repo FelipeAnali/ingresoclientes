@@ -583,7 +583,7 @@ function Barras({datos,labels,objetivo,titulo}){
               </rect>
               {(i%paso===0||n<=16) &&
                 <text x={cx(i)} y={H-pb+16} fontSize={fsL} fill="#63735f" textAnchor="middle">{labels[i]}</text>}
-              {v>0 && n<=16 &&
+              {v>0 &&
                 <text x={cx(i)} y={pt+ch-h-6} fontSize="11.5" fontWeight="700" fill="#05200b" textAnchor="middle">{fmt(v)}</text>}
             </g>
           );
