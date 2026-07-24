@@ -276,17 +276,31 @@ const claveSuave=t=>norm(t)
   .replace(/Z/g,"S")
   .replace(/[^A-Z0-9]/g,"");
 
-/** Busca la sede: exacto → tolerante → por prefijo (gana el más largo). */
+/** Busca la sede: exacto → tolerante → por prefijo (con salvaguardas).
+    El prefijo es útil («CALI-LA 34 PRADOS DEL NORTE» ≡ «CALI-LA 34») pero
+    peligroso: sin límites, una sede nueva «CALI-PUNTO 1» se colaría como
+    «SC PUNTO 14». Por eso se exige que la parte sobrante NO empiece en dígito,
+    que la clave corta tenga al menos 6 caracteres, y que el resultado sea
+    inequívoco: si dos sedes distintas encajan, no se adivina. */
 function buscarSede(valor,mapa,suave){
   const k=norm(valor);
   if(mapa.has(k)) return mapa.get(k);
   const ks=claveSuave(valor);
   if(!ks) return null;
   if(suave.has(ks)) return suave.get(ks);
-  let mejor=null,largo=0;
-  for(const [c,v] of suave)
-    if((ks.startsWith(c)||c.startsWith(ks)) && c.length>largo){ largo=c.length; mejor=v; }
-  return mejor;
+  if(ks.length<6) return null;
+  const candidatos=new Map();       // sede → longitud de la coincidencia
+  for(const [c,v] of suave){
+    if(c.length<6) continue;
+    const corta=c.length<=ks.length?c:ks, larga=c.length<=ks.length?ks:c;
+    if(!larga.startsWith(corta)) continue;
+    const resto=larga.slice(corta.length);
+    if(/^\d/.test(resto)) continue;   // «CALIPUNTO1» vs «CALIPUNTO14» → se descarta
+    const prev=candidatos.get(v)||0;
+    if(corta.length>prev) candidatos.set(v,corta.length);
+  }
+  if(candidatos.size!==1) return null;   // ninguna o ambigua: mejor que quede sin mapear
+  return [...candidatos.keys()][0];
 }
 
 /** Quita cinemas duplicados y deja una fila por sede (para memorias viejas). */
@@ -438,13 +452,14 @@ function leerHabeas(buf, mapa, suave){
 
   // 4) recorrer y acumular; se guarda solo el resumen, no las 38.000 filas
   const acum=new Map(); const sinMapeo=new Set();
-  let total=0,nuevos=0,descartados=0,invalidos=0;
+  let total=0,nuevos=0,descartados=0,invalidos=0,sinMarca=0;
   for(let i=1;i<filas.length;i++){
     const r=filas[i]; if(!r) continue;
     total++;
     if(iNuevo>=0){
-      const v=r[iNuevo]; 
-      if(v!=null && String(v).trim().toUpperCase()!=="NUEVO"){ descartados++; continue; }
+      const v=String(r[iNuevo]??"").trim().toUpperCase();
+      if(v===""){ sinMarca++; continue; }              // sin marca no es «nuevo»
+      if(v!=="NUEVO"){ descartados++; continue; }
     }
     const f=fechaExcel(r[iF]);
     const so=norm(r[iSede]);
@@ -459,7 +474,7 @@ function leerHabeas(buf, mapa, suave){
   if(!nuevos) throw new Error("No quedaron registros después de filtrar los clientes nuevos.");
   const rows=[...acum].map(([k,n])=>{const i=k.indexOf("|");return {f:k.slice(0,i),s:k.slice(i+1),n};});
   const corte=rows.reduce((a,r)=>r.f>a?r.f:a,"0000-00-00");
-  return {rows,corte,total,nuevos,descartados,invalidos,sinMapeo:[...sinMapeo]};
+  return {rows,corte,total,nuevos,descartados,invalidos,sinMarca,sinMapeo:[...sinMapeo]};
 }
 
 function leerAnexo(buf, nombre, mapa, suave){
@@ -473,15 +488,19 @@ function leerAnexo(buf, nombre, mapa, suave){
   const k0=Object.keys(filas[0]);
   const kSede=k0.find(k=>k.toLowerCase().trim()==="sede")||k0[0];
   const kNum =k0.find(k=>k.toLowerCase().includes("registro"))||k0[1];
-  const out=[]; const sinMapeo=new Set(); let tot=0;
+  const kRec =k0.find(k=>k.toLowerCase().includes("recuperad"));   // «Recuperados por respaldo»
+  const out=[]; const sinMapeo=new Set(); let tot=0, rec=0;
   for(const r of filas){
     const so=norm(r[kSede]); const n=Number(r[kNum]);
+    const rr=kRec?Number(r[kRec]):0;
+    if(kRec&&isFinite(rr)&&rr>0) rec+=rr;
     if(!so||!isFinite(n)||n<=0) continue;
     const sede=buscarSede(so,mapa,suave); if(!sede) sinMapeo.add(so);
-    out.push({f,s:sede||so,n,src:nombre}); tot+=n;
+    // el recuperado se guarda aparte: hoy no suma al conteo (ver nota en pantalla)
+    out.push({f,s:sede||so,n,rec:(kRec&&isFinite(rr)&&rr>0)?rr:0,src:nombre}); tot+=n;
   }
   if(!out.length) throw new Error(`«${nombre}»: no encontré filas con sede y cantidad.`);
-  return {fecha:f,filas:out,total:tot,sinMapeo:[...sinMapeo]};
+  return {fecha:f,filas:out,total:tot,recuperados:rec,sinMapeo:[...sinMapeo]};
 }
 
 /* ══════════ cálculo ══════════ */
@@ -729,7 +748,7 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
         const r=leerHabeas(buf,mapa,suave);
         buf=null; e.target.value=null;
         onHabeas({corte:r.corte,rows:r.rows,archivo:file.name,
-          stats:{total:r.total,nuevos:r.nuevos,descartados:r.descartados,invalidos:r.invalidos},
+          stats:{total:r.total,nuevos:r.nuevos,descartados:r.descartados,invalidos:r.invalidos,sinMarca:r.sinMarca},
           sinMapeo:r.sinMapeo});
         notify(`Habeas Data: ${r.nuevos.toLocaleString("es-CO")} clientes nuevos${r.descartados?` · ${r.descartados.toLocaleString("es-CO")} actualizaciones descartadas`:""}`);
       }catch(x){
@@ -742,13 +761,13 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
 
   const cargarAnexos=files=>{
     setErr(null);
-    const lista=[...files]; let hechas=0, nuevas=[], errores=[], sm=new Set();
+    const lista=[...files]; let hechas=0, nuevas=[], errores=[], sm=new Set(), recuperados=0;
     lista.forEach(file=>{
       const fr=new FileReader();
       fr.onload=e=>{
         try{
           const r=leerAnexo(new Uint8Array(e.target.result),file.name,mapa,suave);
-          nuevas.push(...r.filas); r.sinMapeo.forEach(s=>sm.add(s));
+          nuevas.push(...r.filas); r.sinMapeo.forEach(s=>sm.add(s)); recuperados+=r.recuperados||0;
         }catch(x){ errores.push(x.message); }
         if(++hechas===lista.length) cerrar();
       };
@@ -758,7 +777,11 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
     function cerrar(){
       if(nuevas.length){
         const res=onAnexos(nuevas);
-        notify(`${res.agregados} registros agregados${res.repetidos?` · ${res.repetidos} ya estaban y se ignoraron`:""}`);
+        const dias=res.dias.length===1?`del ${res.dias[0]}`:`de ${res.dias.length} días`;
+        notify(res.reemplazados
+          ? `${res.agregados} registros ${dias} · reemplazaron los ${res.reemplazados} que había de esas fechas`
+          : `${res.agregados} registros ${dias} agregados`);
+        if(recuperados>0) setErr(`Los archivos traen ${recuperados} registros en «Recuperados por respaldo». Hoy NO se suman al conteo; dime si deben contar y lo activo.`);
       }
       if(errores.length) setErr(errores.join("  "));
       if(sm.size) setErr(p=>(p?p+"  ":"")+`Sedes sin mapear: ${[...sm].join(", ")}. Agrégalas en Configuración.`);
@@ -830,7 +853,9 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
             <span className="dot"/>
             <div>
               <div className="t">{habeas.archivo||"Base cargada"}</div>
-              <div className="d">Corte {habeas.corte} · {habeas.stats?.descartados?`${fmt(habeas.stats.descartados)} actualizaciones descartadas`:"sin actualizaciones"}</div>
+              <div className="d">Corte {habeas.corte}
+                {habeas.stats?.descartados?` · ${fmt(habeas.stats.descartados)} actualizaciones descartadas`:" · sin actualizaciones"}
+                {habeas.stats?.sinMarca?` · ${fmt(habeas.stats.sinMarca)} sin marca de cliente nuevo, también descartados`:""}</div>
             </div>
             <div className="r"><b className="num">{fmt(habeas.stats?.nuevos)}</b><div className="d">clientes nuevos</div></div>
           </div>
@@ -846,7 +871,7 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
 
       <div className="card">
         <h3>Reportes diarios</h3>
-        <div className="hint">Los archivos que llegan día a día ya sumados por sede. Se acumulan en la memoria y se suman a la base. Si subes uno repetido, se ignora. La fecha se toma del nombre del archivo.</div>
+        <div className="hint">Los archivos que llegan día a día ya sumados por sede. Se acumulan en la memoria y se suman a la base. La fecha se toma del nombre del archivo. Si vuelves a subir un día que ya estaba, el nuevo reemplaza al anterior, así puedes corregir un reporte.</div>
         {dz("a","Sube los reportes diarios","Puedes arrastrar varios a la vez. Ejemplo: reporte-registro-2026-07-22.xlsx","Buscar archivos",cargarAnexos,true)}
         {anexosPorFecha.length>0 && (
           <div style={{marginTop:14}}>
@@ -1300,6 +1325,7 @@ function Config({mapeo,setMapeo,notify}){
 
 /* ══════════ guardado local automático ══════════ */
 const LS="cn_estado_v1";
+const SIN_ANEXOS=[];   // constante: evita recalcular todo en cada render
 function leerLocal(){
   try{ const t=window.localStorage.getItem(LS); return t?JSON.parse(t):null; }catch(e){ return null; }
 }
@@ -1338,7 +1364,7 @@ function App(){
   },[mapeo]);
 
   const cfgSedes=useMemo(()=>[...new Set(mapeo.filter(m=>m.cluster!==NO_INCLUIR).map(m=>m.sede&&m.sede.trim().toUpperCase()).filter(Boolean))].sort(),[mapeo]);
-  const hechos=useHechos(habeas,usarAnexos?anexos:[],ignorar);
+  const hechos=useHechos(habeas,usarAnexos?anexos:SIN_ANEXOS,ignorar);
   const [guardaLocal,setGuardaLocal]=useState(true);
 
   useEffect(()=>{
@@ -1349,31 +1375,20 @@ function App(){
     return ()=>clearTimeout(t);
   },[habeas,anexos,presu,mapeo,usarAnexos]);
 
+/** Incorpora reportes diarios. Cada archivo es la foto completa de SU día,
+    así que si vuelve a llegar un reporte de una fecha ya cargada, reemplaza
+    la anterior en vez de ignorarse: así se pueden subir versiones corregidas. */
 const addAnexos = useCallback(nuevas => {
-  let agregados = 0, repetidos = 0;
-  
-  // Hacemos el cálculo usando el estado actual (anexos)
-  const vistos = new Set(anexos.map(a => a.f + "|" + a.s));
-  const add = [];
-  
-  nuevas.forEach(a => {
-    const k = a.f + "|" + a.s;
-    if (vistos.has(k)) { 
-      repetidos += a.n; 
-    } else { 
-      vistos.add(k); 
-      add.push(a); 
-      agregados += a.n; 
-    }
+  let agregados=0, reemplazados=0;
+  const dias=new Set(nuevas.map(a=>a.f));
+  setAnexos(prev => {
+    const previoDeEsosDias=prev.filter(a=>dias.has(a.f));
+    reemplazados=previoDeEsosDias.reduce((t,a)=>t+a.n,0);
+    agregados=nuevas.reduce((t,a)=>t+a.n,0);
+    return [...prev.filter(a=>!dias.has(a.f)), ...nuevas];
   });
-
-  // Solo disparamos el estado si realmente hay nuevos
-  if (add.length > 0) {
-    setAnexos(prev => [...prev, ...add]);
-  }
-  
-  return { agregados, repetidos };
-}, [anexos]); // Agregamos 'anexos' a las dependencias
+  return {agregados, reemplazados, dias:[...dias].sort()};
+}, []);
 
   const guardarMemoria=useCallback(()=>{
     const hoy=new Date();
