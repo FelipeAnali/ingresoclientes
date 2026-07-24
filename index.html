@@ -194,6 +194,7 @@ tr.tot td{font-weight:700;background:#eef2ec;border-top:2px solid var(--forest);
 
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;
   padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:99;box-shadow:0 10px 30px rgba(5,32,11,.28);max-width:90vw}
+.nota-pie{font-size:11.5px;color:var(--muted);margin-top:11px;padding-top:10px;border-top:1px dashed var(--line);line-height:1.6}
 .empty{padding:44px 20px;text-align:center;color:var(--muted)}
 .empty img{width:132px;height:auto;margin:0 auto 16px;display:block}
 .empty h4{font-family:'Archivo';font-size:16px;margin-bottom:6px;color:var(--ink)}
@@ -548,6 +549,21 @@ function construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,mes,semana,dia}){
 }
 let CLUSTER_BY_SEDE=new Map();
 
+/** Totales de un conjunto de filas.
+    El % solo compara las sedes que SÍ tienen objetivo: si una sede no tiene
+    presupuesto, sus inscritos no pueden contar como logro contra una meta
+    que no existe (eso inflaba el porcentaje). Los inscritos totales se
+    siguen reportando completos por aparte. */
+function totales(filas){
+  const conObj=filas.filter(f=>f.objetivo!=null);
+  const i     =filas.reduce((a,f)=>a+f.inscritos,0);      // todos los inscritos
+  const iComp =conObj.reduce((a,f)=>a+f.inscritos,0);     // solo los comparables
+  const o     =conObj.reduce((a,f)=>a+f.objetivo,0);
+  const fa    =conObj.reduce((a,f)=>a+(f.faltante||0),0);
+  return {i,iComp,o,fa,nCon:conObj.length,nSin:filas.length-conObj.length,
+          p:o>0?iComp/o:null};
+}
+
 /* ══════════ gráfica de barras ══════════ */
 function Barras({datos,labels,objetivo,titulo}){
   if(!datos.length) return <div className="empty"><p>Sin datos para graficar.</p></div>;
@@ -616,8 +632,8 @@ function TablaSedes({filas,vista}){
       {l}{sort.c===c?(sort.d===1?" ▲":" ▼"):""}
     </th>
   );
-  const t=filas.reduce((a,f)=>({i:a.i+f.inscritos,o:a.o+(f.objetivo||0),fa:a.fa+(f.faltante||0)}),{i:0,o:0,fa:0});
-  const tp=t.o>0?t.i/t.o:null;
+  const t=totales(filas);
+  const tp=t.p;
   if(!filas.length) return <div className="empty"><h4>Nada que mostrar</h4><p>No hay inscritos ni objetivo en este período.</p></div>;
   return (
     <div className="tw">
@@ -655,16 +671,26 @@ function TablaSedes({filas,vista}){
             </tr>
           ))}
           <tr className="tot">
-            <td>TOTAL</td><td>{filas.length} sedes</td>
+            <td>TOTAL</td><td>{t.nSin>0&&t.nCon>0?`${t.nCon} de ${filas.length} con objetivo`:`${filas.length} sedes`}</td>
             {vista==="semanal" && <td/>}{vista==="diario" && <td/>}
             <td className="r num">{fmt(t.i)}</td>
             <td className="r num">{fmt(t.o)}</td>
             <td className="r num">{t.fa>0?fmt(t.fa):"✓"}</td>
-            <td className="r num">{pct(tp)}</td>
+            <td className="r num" title={t.nSin>0?`Calculado sobre ${fmt(t.iComp)} inscritos de las ${t.nCon} sedes con objetivo`:""}>{pct(tp)}</td>
             <td><span className={"tag "+tagCls(estadoDe(tp))}>{estadoDe(tp)}</span></td>
           </tr>
         </tbody>
       </table>
+      {t.nSin>0 && (
+        <div className="nota-pie">
+          {t.nCon===0
+            ? <>Ninguna de las {t.nSin} sedes tiene presupuesto en este período, por eso no hay porcentaje de
+               cumplimiento. Los inscritos sí se muestran completos. Defínelo en Ajustes → Presupuesto.</>
+            : <>El % compara únicamente las {t.nCon} sedes con objetivo definido ({fmt(t.iComp)} inscritos).
+               Las otras {t.nSin} aparecen en la tabla y suman en «Inscritos», pero no entran en el porcentaje
+               porque no hay presupuesto contra el cual medirlas.</>}
+        </div>
+      )}
     </div>
   );
 }
@@ -881,12 +907,9 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
   useEffect(()=>{ if(sedeSel!=="TODAS"&&!sedesDisp.includes(sedeSel)) setSedeSel("TODAS"); },[sedesDisp.join()]);
 
   const k=useMemo(()=>{
-    const i=filas.reduce((a,f)=>a+f.inscritos,0);
-    const o=filas.reduce((a,f)=>a+(f.objetivo||0),0);
-    const fa=filas.reduce((a,f)=>a+(f.faltante||0),0);
-    const conObj=filas.filter(f=>f.objetivo!=null).length;
+    const t=totales(filas);
     const cum=filas.filter(f=>f.pct!=null&&f.pct>=1).length;
-    return {i,o,fa,conObj,cum,p:o>0?i/o:null};
+    return {...t,conObj:t.nCon,cum};
   },[filas]);
 
   // serie para la gráfica
@@ -933,8 +956,8 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
     : `${dia} de ${MES_L[mes-1]}`;
 
   const exportar=()=>{
-    const t=filas.reduce((a,f)=>({i:a.i+f.inscritos,o:a.o+(f.objetivo||0),fa:a.fa+(f.faltante||0)}),{i:0,o:0,fa:0});
-    const tp=t.o>0?t.i/t.o:null;
+    const t=totales(filas);
+    const tp=t.p;
     const fila=f=>{
       const o={Sede:f.sede,Cluster:f.cluster};
       if(vista==="semanal") o["Rango"]=f.rango;
@@ -1044,7 +1067,7 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
           <div className="dt">{k.fa>0?"para llegar al objetivo":"objetivo alcanzado"}</div></div>
         <div className="kpi"><div className="lb">% Cumplimiento</div>
           <div className="vl num" style={{color:k.p==null?"var(--muted-2)":k.p>=1?"var(--forest)":"var(--red)"}}>{pct(k.p)}</div>
-          <div className="dt">{estadoDe(k.p)}</div></div>
+          <div className="dt">{k.nSin>0?`${estadoDe(k.p)} · sobre ${k.nCon} sedes con objetivo`:estadoDe(k.p)}</div></div>
         <div className="kpi"><div className="lb">Sedes que cumplen</div>
           <div className="vl num">{k.cum}<span style={{fontSize:15,color:"var(--muted-2)"}}> / {k.conObj}</span></div>
           <div className="dt">con objetivo definido</div></div>
