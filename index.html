@@ -1298,20 +1298,31 @@ function App(){
     return ()=>clearTimeout(t);
   },[habeas,anexos,presu,mapeo,usarAnexos]);
 
-  const addAnexos=useCallback(nuevas=>{
-    let agregados=0,repetidos=0;
-    setAnexos(prev=>{
-      const vistos=new Set(prev.map(a=>a.f+"|"+a.s));
-      const add=[];
-      nuevas.forEach(a=>{
-        const k=a.f+"|"+a.s;
-        if(vistos.has(k)){ repetidos+=a.n; }
-        else{ vistos.add(k); add.push(a); agregados+=a.n; }
-      });
-      return add.length?[...prev,...add]:prev;
-    });
-    return {agregados,repetidos};
-  },[]);
+const addAnexos = useCallback(nuevas => {
+  let agregados = 0, repetidos = 0;
+  
+  // Hacemos el cálculo usando el estado actual (anexos)
+  const vistos = new Set(anexos.map(a => a.f + "|" + a.s));
+  const add = [];
+  
+  nuevas.forEach(a => {
+    const k = a.f + "|" + a.s;
+    if (vistos.has(k)) { 
+      repetidos += a.n; 
+    } else { 
+      vistos.add(k); 
+      add.push(a); 
+      agregados += a.n; 
+    }
+  });
+
+  // Solo disparamos el estado si realmente hay nuevos
+  if (add.length > 0) {
+    setAnexos(prev => [...prev, ...add]);
+  }
+  
+  return { agregados, repetidos };
+}, [anexos]); // Agregamos 'anexos' a las dependencias
 
   const guardarMemoria=useCallback(()=>{
     const hoy=new Date();
