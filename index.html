@@ -617,7 +617,7 @@ function Barras({datos,labels,objetivo,objetivos,titulo}){
             <text x={pl-9} y={pt+ch*(1-t)+4} fontSize="11.5" fill="#8a9886" textAnchor="end">{fmt(mx*t)}</text>
           </g>
         ))}
-        {datos.map((v,i)=>{
+{datos.map((v,i)=>{
           const h=v>0?Math.max(ch*(v/mx),2.5):0;
           const meta=metaDe(i);
           const ok=meta!=null&&meta>0&&v>=meta;
@@ -633,7 +633,7 @@ function Barras({datos,labels,objetivo,objetivos,titulo}){
                     y1={y(meta)} y2={y(meta)} stroke="#b8342a" strokeWidth="2.2" strokeLinecap="round">
                     <title>Objetivo de {labels[i]}: {fmt2(meta)}</title>
                   </line>
-                  <text x={cx(i)} y={y(meta)-5} fontSize="9.5" fontWeight="700" fill="#b8342a" textAnchor="middle">
+                  <text x={cx(i)} y={y(meta)-6} fontSize="11" fontWeight="700" fill="#b8342a" textAnchor="middle">
                     {fmt2(meta)}
                   </text>
                 </g>
@@ -645,16 +645,6 @@ function Barras({datos,labels,objetivo,objetivos,titulo}){
             </g>
           );
         })}
-        {!objetivos&&objetivo!=null&&objetivo>0&&(
-          <g>
-            <line x1={pl} x2={W-pr} y1={y(objetivo)} y2={y(objetivo)} stroke="#b8342a" strokeWidth="2" strokeDasharray="7 5"/>
-            <text x={W-pr-3} y={y(objetivo)-6} fontSize="11.5" fontWeight="700" fill="#b8342a" textAnchor="end">Objetivo {fmt2(objetivo)}</text>
-          </g>
-        )}
-      </svg>
-    </div>
-  );
-}
 
 /* ══════════ tabla de sedes ══════════ */
 function TablaSedes({filas,vista}){
