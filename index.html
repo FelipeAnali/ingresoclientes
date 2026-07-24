@@ -628,10 +628,15 @@ function Barras({datos,labels,objetivo,objetivos,titulo}){
                 <title>{labels[i]}: {fmt(v)}{meta!=null?` · objetivo ${fmt2(meta)}`:""}</title>
               </rect>
               {objetivos && meta!=null && meta>0 && (
-                <line x1={cx(i)-anchoBarra/2-3} x2={cx(i)+anchoBarra/2+3}
-                  y1={y(meta)} y2={y(meta)} stroke="#b8342a" strokeWidth="2.2" strokeLinecap="round">
-                  <title>Objetivo de {labels[i]}: {fmt2(meta)}</title>
-                </line>
+                <g>
+                  <line x1={cx(i)-anchoBarra/2-3} x2={cx(i)+anchoBarra/2+3}
+                    y1={y(meta)} y2={y(meta)} stroke="#b8342a" strokeWidth="2.2" strokeLinecap="round">
+                    <title>Objetivo de {labels[i]}: {fmt2(meta)}</title>
+                  </line>
+                  <text x={cx(i)} y={y(meta)-5} fontSize="9.5" fontWeight="700" fill="#b8342a" textAnchor="middle">
+                    {fmt2(meta)}
+                  </text>
+                </g>
               )}
               {(i%paso===0||n<=16) &&
                 <text x={cx(i)} y={H-pb+16} fontSize={fsL} fill="#63735f" textAnchor="middle">{labels[i]}</text>}
@@ -975,14 +980,22 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
     // objetivo mensual del conjunto de sedes visibles, para un mes cualquiera
     const objMes=mm=>objTot(f=>{const v=presu[`${anio}-${p2(mm)}|${f.sede}`];return (v==null||v==="")?null:Number(v);});
 
-    if(vista==="anual"||vista==="mensual"){
+if(vista==="anual"||vista==="mensual"){
       const m=sum((y,mm)=>mm);
-      // cada mes tiene su propio objetivo: no se puede dibujar una sola línea
       const metas=Array.from({length:12},(_,i)=>objMes(i+1));
-      return {datos:Array.from({length:12},(_,i)=>m.get(i+1)||0),
-        labels:MES_C, objetivos:metas.some(x=>x!=null)?metas:null,
-        titulo:`Inscritos por mes · ${anio}`};
+      const hayMetas = metas.some(x=>x!=null);
+      // LÓGICA NUEVA: Si el objetivo es el mismo todos los meses, dibuja una sola línea
+      const todasIguales = hayMetas && metas.every(x => x === metas[0]);
+      
+      return {
+        datos:Array.from({length:12},(_,i)=>m.get(i+1)||0),
+        labels:MES_C, 
+        objetivos: (hayMetas && !todasIguales) ? metas : null,
+        objetivo: todasIguales ? metas[0] : null,
+        titulo:`Inscritos por mes · ${anio}`
+      };
     }
+    
     if(vista==="semanal"){
       const m=sum((y,mm,d)=>mm===mes?semanaDe(y,mm,d):null);
       // objetivo diario del conjunto; cada semana lo multiplica por SUS días
@@ -990,10 +1003,25 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
         return (v==null||v==="")?null:Number(v)/diasMes(anio,mes);});
       const metas=objDia==null?null
         :Array.from({length:nSem},(_,i)=>objDia*diasDeSemana(anio,mes,i+1).length);
-      return {datos:Array.from({length:nSem},(_,i)=>m.get(i+1)||0),
+        
+      return {
+        datos:Array.from({length:nSem},(_,i)=>m.get(i+1)||0),
         labels:Array.from({length:nSem},(_,i)=>"S"+(i+1)),
-        objetivos:metas, titulo:`Inscritos por semana · ${MES_L[mes-1]} ${anio}`};
+        objetivos:metas, 
+        titulo:`Inscritos por semana · ${MES_L[mes-1]} ${anio}`
+      };
     }
+    
+    // LÓGICA NUEVA: En vista de día, forzamos rayitas separadas ("por día")
+    const m=sum((y,mm,d)=>mm===mes?d:null);
+    const metasDia = k.o == null ? null : Array.from({length:nDia}, ()=>k.o);
+    
+    return {
+      datos:Array.from({length:nDia},(_,i)=>m.get(i+1)||0),
+      labels:Array.from({length:nDia},(_,i)=>i+1),
+      objetivos:metasDia, 
+      titulo:`Inscritos por día · ${MES_L[mes-1]} ${anio}`
+    };
     // en vista día todos los días comparten el mismo objetivo: una sola línea es correcta
     const m=sum((y,mm,d)=>mm===mes?d:null);
     return {datos:Array.from({length:nDia},(_,i)=>m.get(i+1)||0),
