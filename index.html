@@ -132,6 +132,23 @@ input,select{font-family:inherit;font-size:14px}
 .ct{display:flex;flex-direction:column;gap:5px}
 .ct label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-2)}
 .ct select,.ct input{border:1px solid var(--line-strong);border-radius:9px;padding:8px 11px;background:#fff;min-width:140px}
+.ms{position:relative}
+.ms-btn{display:flex;align-items:center;gap:8px;border:1px solid var(--line-strong);border-radius:9px;
+  padding:8px 11px;background:#fff;min-width:170px;max-width:230px;font-size:14px;color:var(--ink);text-align:left}
+.ms-btn:hover{border-color:var(--forest)}
+.ms-btn.on{border-color:var(--forest);box-shadow:0 0 0 2px var(--lime-soft)}
+.ms-txt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-btn svg{flex-shrink:0;color:var(--muted)}
+.ms-pop{position:absolute;z-index:30;top:calc(100% + 5px);left:0;min-width:100%;max-width:320px;
+  background:#fff;border:1px solid var(--line);border-radius:11px;box-shadow:0 14px 34px rgba(5,32,11,.18);overflow:hidden}
+.ms-tools{display:flex;gap:4px;padding:7px;border-bottom:1px solid var(--line)}
+.ms-tools button{flex:1;font-size:12px;font-weight:600;padding:5px 8px;border-radius:7px;background:var(--lime-soft);color:var(--forest)}
+.ms-tools button:hover{background:var(--lime-line)}
+.ms-list{max-height:260px;overflow-y:auto;padding:5px}
+.ms-op{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;cursor:pointer;font-size:13px}
+.ms-op:hover{background:var(--lime-soft)}
+.ms-op input{width:15px;height:15px;accent-color:var(--forest);flex-shrink:0}
+.ms-op span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .seg{display:flex;background:#fff;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden}
 .seg button{padding:8px 15px;font-size:13px;font-weight:600;color:var(--muted)}
 .seg button+button{border-left:1px solid var(--line)}
@@ -525,48 +542,73 @@ function useHechos(habeas,anexos,ignorar){
 }
 
 /** Construye la tabla de la vista pedida. */
-function construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,mes,semana,dia}){
+/** Construye la tabla por sede. Acepta selección múltiple:
+    meses/semanas/dias son ARREGLOS; vacío significa "todos los del período".
+    El objetivo de cada sede es la SUMA de los objetivos de los períodos elegidos,
+    así el porcentaje refleja exactamente lo que se está mirando. */
+function construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,meses,semanas,dias}){
   const objMensual=(y,m,s)=>{const v=presu[`${y}-${p2(m)}|${s}`];return (v==null||v==="")?null:Number(v);};
   const objDiario =(y,m,s)=>{const o=objMensual(y,m,s);return o==null?null:o/diasMes(y,m);};
 
-  // agrupar inscritos según la vista
-  const ins=new Map(); // sede -> n
+  // qué meses/semanas/días cuentan (vacío = todos los aplicables)
+  const mesesSel = (meses&&meses.length)?meses : (vista==="anual"?Array.from({length:12},(_,i)=>i+1):[]);
+  const setMes = new Set(mesesSel);
+  const setSem = new Set(semanas||[]);
+  const setDia = new Set(dias||[]);
+  const filtMes = m => vista==="anual" ? true : (setMes.size?setMes.has(m):true);
+
+  // agrupar inscritos según la vista y los filtros
+  const ins=new Map();
   for(const r of hechos.rows){
     const {y,m,d}=partes(r.f);
     if(y!==anio) continue;
-    if(vista!=="anual" && m!==mes) continue;
-    if(vista==="semanal" && semanaDe(y,m,d)!==semana) continue;
-    if(vista==="diario"  && d!==dia) continue;
+    if(!filtMes(m)) continue;
+    if(vista==="semanal" && setSem.size && !setSem.has(semanaDe(y,m,d))) continue;
+    if(vista==="diario"  && setDia.size && !setDia.has(d)) continue;
     ins.set(r.s,(ins.get(r.s)||0)+r.n);
   }
-  // universo de sedes: las que tienen datos + las configuradas
+
+  // meses efectivos para calcular objetivos (si no eligió, todos los que tengan datos o presupuesto)
+  const mesesObj = vista==="anual"
+    ? Array.from({length:12},(_,i)=>i+1)
+    : (setMes.size?[...setMes]:Array.from({length:12},(_,i)=>i+1));
+
   const universo=new Set([...ins.keys(),...cfgSedes]);
   const filas=[...universo].map(s=>{
     const inscritos=ins.get(s)||0;
     let objetivo=null, extra={};
-    if(vista==="anual"){
+
+    if(vista==="anual"||vista==="mensual"){
+      // suma del objetivo mensual de cada mes seleccionado
       let t=0,hay=false;
-      for(let m=1;m<=12;m++){const o=objMensual(anio,m,s); if(o!=null){t+=o;hay=true;}}
+      for(const m of mesesObj){ const o=objMensual(anio,m,s); if(o!=null){t+=o;hay=true;} }
       objetivo=hay?t:null;
-    } else if(vista==="mensual"){
-      objetivo=objMensual(anio,mes,s);
-      extra.diasMes=diasMes(anio,mes);
+
     } else if(vista==="semanal"){
-      const od=objDiario(anio,mes,s), dd=diasDeSemana(anio,mes,semana);
-      objetivo=od==null?null:od*dd.length;
-      extra.dias=dd.length;
-      extra.rango=dd.length?`${dd[0]}–${dd[dd.length-1]} ${MES_C[mes-1]}`:"—";
-    } else {
-      objetivo=objDiario(anio,mes,s);
-      extra.dow=DOW[new Date(anio,mes-1,dia).getDay()];
+      // por cada mes elegido, cada semana elegida aporta objetivoDiario × sus días
+      let t=0,hay=false;
+      for(const m of mesesObj){
+        const od=objDiario(anio,m,s); if(od==null) continue;
+        const sems = setSem.size?[...setSem]:Array.from({length:nSemanas(anio,m)},(_,i)=>i+1);
+        for(const w of sems){ const nd=diasDeSemana(anio,m,w).length; if(nd){t+=od*nd;hay=true;} }
+      }
+      objetivo=hay?t:null;
+
+    } else { // diario
+      let t=0,hay=false;
+      for(const m of mesesObj){
+        const od=objDiario(anio,m,s); if(od==null) continue;
+        const nd = setDia.size?[...setDia].filter(d=>d<=diasMes(anio,m)).length:diasMes(anio,m);
+        if(nd){t+=od*nd;hay=true;}
+      }
+      objetivo=hay?t:null;
     }
-    // se conserva con 2 decimales: redondear a entero distorsionaba hasta 26%
-    // el objetivo diario de las sedes con presupuesto bajo
+
     const obj=objetivo==null?null:Math.round(objetivo*100)/100;
     const p=(obj==null||obj<=0)?null:inscritos/obj;
     return {sede:s,cluster:CLUSTER_BY_SEDE.get(s)||"Sin cluster",inscritos,objetivo:obj,
       faltante:obj==null?null:Math.round(Math.max(0,obj-inscritos)*100)/100,
-      pct:p,estado:estadoDe(p),...extra};
+      pct:p,estado:estadoDe(p)};
   }).filter(r=>r.inscritos>0||r.objetivo!=null);
   return filas;
 }
@@ -590,22 +632,32 @@ function totales(filas){
 /* ══════════ gráfica de barras ══════════ */
 /** objetivo  = una sola línea (cuando todas las barras comparten meta)
     objetivos = un valor por barra (cuando cada período tiene su propia meta) */
-function Barras({datos,labels,objetivo,objetivos,titulo}){
+function Barras({datos,labels,objetivo,objetivos,resalta,haySel,titulo}){
   if(!datos.length) return <div className="empty"><p>Sin datos para graficar.</p></div>;
-  // lienzo fijo que se estira al ancho de la tarjeta: la gráfica siempre llena el espacio
   const W=1000,H=290,pl=54,pr=16,pt=22,pb=34;
   const ch=H-pt-pb, bw=(W-pl-pr)/datos.length;
-  const metaDe=i=>objetivos?objetivos[i]:objetivo;
-  const topeMeta=objetivos
-    ? Math.max(0,...objetivos.filter(o=>o!=null))
-    : (objetivo||0);
+  const on=i=>resalta?resalta(i):true;
+  const n=datos.length;
+
+  // ¿los objetivos por barra son todos iguales? entonces una sola línea es más limpia
+  const metasValidas = objetivos?objetivos.filter(o=>o!=null&&o>0):[];
+  const todosIguales = metasValidas.length>1 &&
+    metasValidas.every(o=>Math.abs(o-metasValidas[0])<0.01);
+  // línea única: cuando venía objetivo suelto, o cuando todas las metas coinciden
+  const objUnico = (!objetivos&&objetivo!=null&&objetivo>0) ? objetivo
+    : (todosIguales ? metasValidas[0] : null);
+  // marcas individuales solo si difieren entre sí
+  const metasIndiv = (objetivos && !todosIguales) ? objetivos : null;
+
+  const metaDe=i=>metasIndiv?metasIndiv[i]:objUnico;
+  const topeMeta=Math.max(objUnico||0, ...(metasIndiv?metasIndiv.filter(o=>o!=null):[0]));
   const mx=Math.max(1,...datos,topeMeta);
   const y=v=>pt+ch*(1-v/mx);
-  const n=datos.length;
   const anchoBarra=Math.min(bw*.72,64);
   const cx=i=>pl+i*bw+bw/2;
-  const paso = 1;   // mostrar siempre todas las etiquetas
   const fsL=n<=14?12:n<=24?11:10;
+  const denso=n>16;              // en gráficas densas, aligerar etiquetas
+  const pasoLbl=denso?(n>26?5:2):1;  // cada cuántos días se rotula el eje
   return (
     <div className="cw">
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}
@@ -621,32 +673,85 @@ function Barras({datos,labels,objetivo,objetivos,titulo}){
           const h=v>0?Math.max(ch*(v/mx),2.5):0;
           const meta=metaDe(i);
           const ok=meta!=null&&meta>0&&v>=meta;
+          const activo=on(i);
+          const fill=ok?"#7dd105":"#1C5A2A";
+          const yMeta=metasIndiv&&meta!=null&&meta>0?y(meta):null;   // marca solo en modo individual
+          const yVal=pt+ch-h;
+          const chocan = yMeta!=null && Math.abs(yMeta-yVal)<16;
+          // el número del valor de la barra: en denso solo en las barras resaltadas
+          const mostrarValor = v>0 && (!denso || activo);
           return (
-            <g key={i}>
-              <rect x={cx(i)-anchoBarra/2} y={pt+ch-h} width={anchoBarra} height={h} rx="3"
-                fill={ok?"#7dd105":"#1C5A2A"}>
+            <g key={i} opacity={activo?1:0.26}>
+              <rect x={cx(i)-anchoBarra/2} y={pt+ch-h} width={anchoBarra} height={h} rx="3" fill={fill}>
                 <title>{labels[i]}: {fmt(v)}{meta!=null?` · objetivo ${fmt2(meta)}`:""}</title>
               </rect>
-              {objetivos && meta!=null && meta>0 && (
-                <line x1={cx(i)-anchoBarra/2-3} x2={cx(i)+anchoBarra/2+3}
-                  y1={y(meta)} y2={y(meta)} stroke="#b8342a" strokeWidth="2.2" strokeLinecap="round">
-                  <title>Objetivo de {labels[i]}: {fmt2(meta)}</title>
-                </line>
+              {yMeta!=null && (
+                <g>
+                  <line x1={cx(i)-anchoBarra/2-3} x2={cx(i)+anchoBarra/2+3}
+                    y1={yMeta} y2={yMeta} stroke="#b8342a" strokeWidth="2.2" strokeLinecap="round">
+                    <title>Objetivo de {labels[i]}: {fmt2(meta)}</title>
+                  </line>
+                  {/* el número del objetivo solo si NO es denso (en denso saturaría) */}
+                  {!denso && (chocan
+                    ? <text x={cx(i)+anchoBarra/2+7} y={yMeta+4} fontSize="10.5" fontWeight="700" fill="#b8342a" textAnchor="start">{fmt2(meta)}</text>
+                    : <text x={cx(i)} y={yMeta-5} fontSize="10.5" fontWeight="700" fill="#b8342a" textAnchor="middle">{fmt2(meta)}</text>)}
+                </g>
               )}
-              {(i%paso===0||n<=16) &&
+              {(i%pasoLbl===0 || (denso && haySel && resalta && resalta(i))) &&
                 <text x={cx(i)} y={H-pb+16} fontSize={fsL} fill="#63735f" textAnchor="middle">{labels[i]}</text>}
-              {v>0 &&
-                <text x={cx(i)} y={pt+ch-h-6} fontSize="11.5" fontWeight="700" fill="#05200b" textAnchor="middle">{fmt(v)}</text>}
+              {mostrarValor &&
+                <text x={cx(i)} y={yVal-6} fontSize={denso?10:11.5} fontWeight="700" fill="#05200b" textAnchor="middle">{fmt(v)}</text>}
             </g>
           );
         })}
-        {!objetivos&&objetivo!=null&&objetivo>0&&(
+        {objUnico!=null&&objUnico>0&&(
           <g>
-            <line x1={pl} x2={W-pr} y1={y(objetivo)} y2={y(objetivo)} stroke="#b8342a" strokeWidth="2" strokeDasharray="7 5"/>
-            <text x={W-pr-3} y={y(objetivo)-6} fontSize="11.5" fontWeight="700" fill="#b8342a" textAnchor="end">Objetivo {fmt2(objetivo)}</text>
+            <line x1={pl} x2={W-pr} y1={y(objUnico)} y2={y(objUnico)} stroke="#b8342a" strokeWidth="2" strokeDasharray="7 5"/>
+            <text x={W-pr-3} y={y(objUnico)-6} fontSize="11.5" fontWeight="700" fill="#b8342a" textAnchor="end">Objetivo {fmt2(objUnico)}</text>
           </g>
         )}
       </svg>
+    </div>
+  );
+}
+
+/* ══════════ selector múltiple (casillas en un desplegable) ══════════ */
+function MultiSelect({label,opciones,sel,onChange,textoTodas,render}){
+  const [abierto,setAbierto]=useState(false);
+  const ref=useRef(null);
+  useEffect(()=>{
+    if(!abierto) return;
+    const f=e=>{ if(ref.current&&!ref.current.contains(e.target)) setAbierto(false); };
+    window.addEventListener("mousedown",f); return ()=>window.removeEventListener("mousedown",f);
+  },[abierto]);
+  const set=new Set(sel);
+  const toggle=v=>{ const n=new Set(set); n.has(v)?n.delete(v):n.add(v); onChange([...n]); };
+  const resumen = sel.length===0 ? textoTodas
+    : sel.length===1 ? (render?render(sel[0]):sel[0])
+    : `${sel.length} seleccionadas`;
+  return (
+    <div className="ct ms" ref={ref}>
+      <label>{label}</label>
+      <button type="button" className={"ms-btn"+(abierto?" on":"")} onClick={()=>setAbierto(a=>!a)} title={resumen}>
+        <span className="ms-txt">{resumen}</span>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      {abierto && (
+        <div className="ms-pop">
+          <div className="ms-tools">
+            <button onClick={()=>onChange([])}>Todas</button>
+            {sel.length>0 && <button onClick={()=>onChange([])}>Limpiar</button>}
+          </div>
+          <div className="ms-list">
+            {opciones.map(o=>(
+              <label key={o} className="ms-op">
+                <input type="checkbox" checked={set.has(o)} onChange={()=>toggle(o)}/>
+                <span>{render?render(o):o}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -677,8 +782,6 @@ function TablaSedes({filas,vista}){
         <thead><tr>
           {th("sede","Sede")}
           {th("cluster","Cluster")}
-          {vista==="semanal" && <th>Rango</th>}
-          {vista==="diario"  && <th>Día</th>}
           {th("inscritos","Inscritos","r")}
           {th("objetivo","Objetivo","r")}
           {th("faltante","Faltan","r")}
@@ -690,8 +793,6 @@ function TablaSedes({filas,vista}){
             <tr key={f.sede}>
               <td style={{fontWeight:600}}>{f.sede}</td>
               <td style={{color:"var(--muted)"}}>{f.cluster}</td>
-              {vista==="semanal" && <td style={{color:"var(--muted)"}}>{f.rango}</td>}
-              {vista==="diario"  && <td style={{color:"var(--muted)"}}>{f.dow}</td>}
               <td className="r num">{fmt(f.inscritos)}</td>
               <td className="r num">{fmt2(f.objetivo)}</td>
               <td className="r num" style={{color:f.faltante>0?"var(--red)":"var(--muted-2)",fontWeight:f.faltante>0?600:400}}>
@@ -708,7 +809,6 @@ function TablaSedes({filas,vista}){
           ))}
           <tr className="tot">
             <td>TOTAL</td><td>{t.nSin>0&&t.nCon>0?`${t.nCon} de ${filas.length} con objetivo`:`${filas.length} sedes`}</td>
-            {vista==="semanal" && <td/>}{vista==="diario" && <td/>}
             <td className="r num">{fmt(t.i)}</td>
             <td className="r num">{fmt2(t.o)}</td>
             <td className="r num">{t.fa>0?fmt2(t.fa):"✓"}</td>
@@ -922,31 +1022,36 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
   const aniosDisp=hechos.anios.length?hechos.anios:[hoy.getFullYear()];
   const [vista,setVista]=useState("mensual");
   const [anio,setAnio]=useState(aniosDisp[aniosDisp.length-1]);
-  const [mes,setMes]=useState(()=>hechos.corte?+hechos.corte.slice(5,7):hoy.getMonth()+1);
-  const [semana,setSemana]=useState(1);
-  const [dia,setDia]=useState(()=>hechos.corte?+hechos.corte.slice(8,10):1);
+  const mesCorte=hechos.corte?+hechos.corte.slice(5,7):hoy.getMonth()+1;
+  const [meses,setMeses]=useState([mesCorte]);   // arreglos: vacío = todos
+  const [semanas,setSemanas]=useState([]);
+  const [dias,setDias]=useState([]);
   const [cluster,setCluster]=useState("TODOS");
-  const [sedeSel,setSedeSel]=useState("TODAS");
+  const [sedeSet,setSedeSet]=useState([]);       // vacío = todas
 
   useEffect(()=>{ if(!aniosDisp.includes(anio)) setAnio(aniosDisp[aniosDisp.length-1]); },[hechos.anios.join()]);
-  const nSem=nSemanas(anio,mes);
-  const nDia=diasMes(anio,mes);
-  useEffect(()=>{ if(semana>nSem) setSemana(nSem); if(dia>nDia) setDia(nDia); },[anio,mes]);
+  // un solo mes de referencia para las listas de semanas/días (el primero elegido, o el del corte)
+  const mesRef = meses.length?Math.min(...meses):mesCorte;
+  const nSem=nSemanas(anio,mesRef);
+  const nDia=diasMes(anio,mesRef);
+  // limpiar selecciones que se salen de rango al cambiar de mes/año
+  useEffect(()=>{ setSemanas(prev=>prev.filter(w=>w<=nSem)); setDias(prev=>prev.filter(d=>d<=nDia)); },[anio,mesRef]);
 
-  const filasTodas=useMemo(()=>construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,mes,semana,dia}),
-    [hechos,presu,mapa,cfgSedes,vista,anio,mes,semana,dia]);
+  const filasTodas=useMemo(()=>construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,meses,semanas,dias}),
+    [hechos,presu,mapa,cfgSedes,vista,anio,meses.join(),semanas.join(),dias.join()]);
   const filas=useMemo(()=>{
     let f=filasTodas;
     if(cluster!=="TODOS") f=f.filter(x=>x.cluster===cluster);
-    if(sedeSel!=="TODAS") f=f.filter(x=>x.sede===sedeSel);
+    if(sedeSet.length) { const s=new Set(sedeSet); f=f.filter(x=>s.has(x.sede)); }
     return f;
-  },[filasTodas,cluster,sedeSel]);
+  },[filasTodas,cluster,sedeSet]);
 
   const sedesDisp=useMemo(()=>{
     const f=cluster==="TODOS"?filasTodas:filasTodas.filter(x=>x.cluster===cluster);
     return [...new Set(f.map(x=>x.sede))].sort();
   },[filasTodas,cluster]);
-  useEffect(()=>{ if(sedeSel!=="TODAS"&&!sedesDisp.includes(sedeSel)) setSedeSel("TODAS"); },[sedesDisp.join()]);
+  // al cambiar de cluster, quita del set las sedes que ya no existen
+  useEffect(()=>{ setSedeSet(prev=>prev.filter(s=>sedesDisp.includes(s))); },[sedesDisp.join()]);
 
   const k=useMemo(()=>{
     const t=totales(filas);
@@ -954,9 +1059,10 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
     return {...t,conObj:t.nCon,cum};
   },[filas]);
 
-  // serie para la gráfica
+  // serie para la gráfica: cada barra lleva su propio objetivo (marca a su altura)
   const graf=useMemo(()=>{
     const sedesSet=new Set(filas.map(f=>f.sede));
+    const enSel=(mm)=> (meses.length?meses.includes(mm):true);
     const sum=fn=>{
       const m=new Map();
       for(const r of hechos.rows){
@@ -967,77 +1073,73 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
       }
       return m;
     };
-    const objTot=(fnObj)=>{
-      let t=0,hay=false;
-      filas.forEach(f=>{const o=fnObj(f); if(o!=null){t+=o;hay=true;}});
-      return hay?t:null;
-    };
-    // objetivo mensual del conjunto de sedes visibles, para un mes cualquiera
-    const objMes=mm=>objTot(f=>{const v=presu[`${anio}-${p2(mm)}|${f.sede}`];return (v==null||v==="")?null:Number(v);});
+    // objetivo mensual del conjunto de sedes visibles para el mes mm
+    const objMes=mm=>{ let t=0,hay=false;
+      filas.forEach(f=>{const v=presu[`${anio}-${p2(mm)}|${f.sede}`]; if(v!=null&&v!==""){t+=Number(v);hay=true;}});
+      return hay?t:null; };
+    const objDiaMes=mm=>{ const o=objMes(mm); return o==null?null:o/diasMes(anio,mm); };
 
     if(vista==="anual"||vista==="mensual"){
       const m=sum((y,mm)=>mm);
-      // cada mes tiene su propio objetivo: no se puede dibujar una sola línea
       const metas=Array.from({length:12},(_,i)=>objMes(i+1));
       return {datos:Array.from({length:12},(_,i)=>m.get(i+1)||0),
         labels:MES_C, objetivos:metas.some(x=>x!=null)?metas:null,
-        titulo:`Inscritos por mes · ${anio}`};
+        resalta:i=>enSel(i+1), haySel:meses.length>0,
+        titulo:vista==="anual"?`Inscritos por mes · ${anio}`:`Inscritos por mes · ${anio}`};
     }
     if(vista==="semanal"){
-      const m=sum((y,mm,d)=>mm===mes?semanaDe(y,mm,d):null);
-      // objetivo diario del conjunto; cada semana lo multiplica por SUS días
-      const objDia=objTot(f=>{const v=presu[`${anio}-${p2(mes)}|${f.sede}`];
-        return (v==null||v==="")?null:Number(v)/diasMes(anio,mes);});
-      const metas=objDia==null?null
-        :Array.from({length:nSem},(_,i)=>objDia*diasDeSemana(anio,mes,i+1).length);
+      // gráfica de las semanas del mes de referencia
+      const m=sum((y,mm,d)=>mm===mesRef?semanaDe(y,mm,d):null);
+      const od=objDiaMes(mesRef);
+      const metas=od==null?null:Array.from({length:nSem},(_,i)=>od*diasDeSemana(anio,mesRef,i+1).length);
+      const selW=new Set(semanas);
       return {datos:Array.from({length:nSem},(_,i)=>m.get(i+1)||0),
         labels:Array.from({length:nSem},(_,i)=>"S"+(i+1)),
-        objetivos:metas, titulo:`Inscritos por semana · ${MES_L[mes-1]} ${anio}`};
+        objetivos:metas, resalta:i=>selW.size?selW.has(i+1):true, haySel:selW.size>0,
+        titulo:`Inscritos por semana · ${MES_L[mesRef-1]} ${anio}`};
     }
-    // en vista día todos los días comparten el mismo objetivo: una sola línea es correcta
-    const m=sum((y,mm,d)=>mm===mes?d:null);
+    const m=sum((y,mm,d)=>mm===mesRef?d:null);
+    const od=objDiaMes(mesRef);
+    const metas=od==null?null:Array.from({length:nDia},()=>od);
+    const selD=new Set(dias);
     return {datos:Array.from({length:nDia},(_,i)=>m.get(i+1)||0),
       labels:Array.from({length:nDia},(_,i)=>i+1),
-      objetivo:k.o||null, titulo:`Inscritos por día · ${MES_L[mes-1]} ${anio}`};
-  },[hechos,filas,vista,anio,mes,nSem,nDia,presu,k.o]);
+      objetivos:metas, resalta:i=>selD.size?selD.has(i+1):true, haySel:selD.size>0,
+      titulo:`Inscritos por día · ${MES_L[mesRef-1]} ${anio}`};
+  },[hechos,filas,vista,anio,mesRef,nSem,nDia,presu,meses.join(),semanas.join(),dias.join()]);
 
   const sinPresu=filas.length>0 && filas.every(f=>f.objetivo==null);
-  const per = vista==="anual"?String(anio)
-    : vista==="mensual"?`${MES_L[mes-1]} ${anio}`
-    : vista==="semanal"?`semana ${semana} de ${MES_L[mes-1]}`
-    : `${dia} de ${MES_L[mes-1]}`;
+  // texto del período según lo seleccionado
+  const listaMeses = ms => ms.length===0?"todo el año"
+    : ms.length===1?`${MES_L[ms[0]-1]} ${anio}`
+    : ms.length<=3?ms.slice().sort((a,b)=>a-b).map(x=>MES_C[x-1]).join(", ")+` ${anio}`
+    : `${ms.length} meses de ${anio}`;
+  const per = vista==="anual" ? String(anio)
+    : vista==="mensual" ? listaMeses(meses)
+    : vista==="semanal" ? (semanas.length?`${semanas.length===1?"semana":"semanas"} ${semanas.slice().sort((a,b)=>a-b).join(", ")} · ${listaMeses(meses)}`:`todas las semanas · ${listaMeses(meses)}`)
+    : (dias.length?`${dias.length===1?"día":"días"} ${dias.slice().sort((a,b)=>a-b).join(", ")} · ${listaMeses(meses)}`:`todos los días · ${listaMeses(meses)}`);
 
   const exportar=()=>{
     const t=totales(filas);
     const tp=t.p;
-    const fila=f=>{
-      const o={Sede:f.sede,Cluster:f.cluster};
-      if(vista==="semanal") o["Rango"]=f.rango;
-      if(vista==="diario")  o["Día"]=f.dow;
-      o["Inscritos"]=f.inscritos;
-      o["Objetivo"]=f.objetivo==null?null:Math.round(f.objetivo*100)/100;
-      o["Faltan"]=f.faltante==null?null:Math.round(f.faltante*100)/100;
-      o["% Cumplimiento"]=f.pct==null?null:Math.round(f.pct*1000)/10;
-      o["Estado"]=f.estado;
-      return o;
-    };
+    const fila=f=>({Sede:f.sede,Cluster:f.cluster,Inscritos:f.inscritos,
+      Objetivo:f.objetivo==null?null:Math.round(f.objetivo*100)/100,
+      Faltan:f.faltante==null?null:Math.round(f.faltante*100)/100,
+      "% Cumplimiento":f.pct==null?null:Math.round(f.pct*1000)/10,
+      Estado:f.estado});
     const datos=[...filas].sort((a,b)=>(b.pct??-1)-(a.pct??-1)).map(fila);
-    const tot={Sede:"TOTAL",Cluster:`${filas.length} sedes`};
-    if(vista==="semanal") tot["Rango"]="";
-    if(vista==="diario")  tot["Día"]="";
-    tot["Inscritos"]=t.i; tot["Objetivo"]=Math.round(t.o*100)/100; tot["Faltan"]=Math.round(t.fa*100)/100;
-    tot["% Cumplimiento"]=tp==null?null:Math.round(tp*1000)/10;
-    tot["Estado"]=estadoDe(tp);
-    datos.push(tot);
-    const et=(vista==="anual"?`anual_${anio}`
-      : vista==="mensual"?`${MES_C[mes-1]}${anio}`
-      : vista==="semanal"?`${MES_C[mes-1]}${anio}_sem${semana}`
-      : `${anio}-${p2(mes)}-${p2(dia)}`).toLowerCase();
-    const sf=sedeSel!=="TODAS"?"_"+sedeSel.replace(/\s+/g,"_").toLowerCase():"";
-    bajarXLSX(datos,"Cumplimiento",`clientes_nuevos_${et}${sf}.xlsx`,[30,22,14,12,12,12,16,14]);
+    datos.push({Sede:"TOTAL",Cluster:`${filas.length} sedes`,Inscritos:t.i,
+      Objetivo:Math.round(t.o*100)/100,Faltan:Math.round(t.fa*100)/100,
+      "% Cumplimiento":tp==null?null:Math.round(tp*1000)/10,Estado:estadoDe(tp)});
+    const et=(vista==="anual"?`anual_${anio}`:`${vista}_${anio}`).toLowerCase()
+      + (meses.length?"_"+meses.slice().sort((a,b)=>a-b).map(m=>MES_C[m-1]).join("-").toLowerCase():"");
+    const sf=sedeSet.length===1?"_"+sedeSet[0].replace(/\s+/g,"_").toLowerCase():"";
+    bajarXLSX(datos,"Cumplimiento",`clientes_nuevos_${et}${sf}.xlsx`,[30,22,14,12,12,16,14]);
   };
 
-  const alcance = sedeSel!=="TODAS" ? sedeSel : cluster!=="TODOS" ? cluster : "Todas las sedes";
+  const alcance = sedeSet.length===1 ? sedeSet[0]
+    : sedeSet.length>1 ? `${sedeSet.length} sedes`
+    : cluster!=="TODOS" ? cluster : "Todas las sedes";
 
   return (
     <div>
@@ -1067,30 +1169,21 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
           </select>
         </div>
         {vista!=="anual" && (
-          <div className="ct"><label>Mes</label>
-            <select value={mes} onChange={e=>setMes(+e.target.value)}>
-              {MES_L.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
-            </select>
-          </div>
+          <MultiSelect label="Mes" textoTodas="Todo el año"
+            opciones={Array.from({length:12},(_,i)=>i+1)}
+            sel={meses} onChange={setMeses} render={m=>MES_L[m-1]}/>
         )}
         {vista==="semanal" && (
-          <div className="ct"><label>Semana</label>
-            <select value={semana} onChange={e=>setSemana(+e.target.value)}>
-              {Array.from({length:nSem},(_,i)=>{
-                const d=diasDeSemana(anio,mes,i+1);
-                return <option key={i+1} value={i+1}>Semana {i+1} · {d[0]}–{d[d.length-1]}</option>;
-              })}
-            </select>
-          </div>
+          <MultiSelect label="Semana" textoTodas="Todas las semanas"
+            opciones={Array.from({length:nSem},(_,i)=>i+1)}
+            sel={semanas} onChange={setSemanas}
+            render={w=>{const d=diasDeSemana(anio,mesRef,w);return d.length?`Sem ${w} · ${d[0]}–${d[d.length-1]}`:`Sem ${w}`;}}/>
         )}
         {vista==="diario" && (
-          <div className="ct"><label>Día</label>
-            <select value={dia} onChange={e=>setDia(+e.target.value)}>
-              {Array.from({length:nDia},(_,i)=>(
-                <option key={i+1} value={i+1}>{i+1} · {DOW[new Date(anio,mes-1,i+1).getDay()]}</option>
-              ))}
-            </select>
-          </div>
+          <MultiSelect label="Día" textoTodas="Todos los días"
+            opciones={Array.from({length:nDia},(_,i)=>i+1)}
+            sel={dias} onChange={setDias}
+            render={d=>`${d} · ${DOW[new Date(anio,mesRef-1,d).getDay()]}`}/>
         )}
         <div className="ct"><label>Cluster</label>
           <select value={cluster} onChange={e=>setCluster(e.target.value)}>
@@ -1098,12 +1191,8 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
             {[...new Set(filasTodas.map(f=>f.cluster))].sort().map(c=><option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        <div className="ct"><label>Sede</label>
-          <select value={sedeSel} onChange={e=>setSedeSel(e.target.value)}>
-            <option value="TODAS">Todas las sedes</option>
-            {sedesDisp.map(s=><option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
+        <MultiSelect label="Sede" textoTodas="Todas las sedes"
+          opciones={sedesDisp} sel={sedeSet} onChange={setSedeSet}/>
         <button className="btn gh" onClick={exportar} disabled={!filas.length}>Exportar a Excel</button>
       </div>
 
@@ -1113,7 +1202,7 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
         <div className="kpi dark"><div className="lb">Inscritos</div><div className="vl num">{fmt(k.i)}</div>
           <div className="dt">{per}</div></div>
         <div className="kpi"><div className="bar"/><div className="lb">Objetivo</div><div className="vl num">{fmt2(k.o)}</div>
-          <div className="dt">{sedeSel!=="TODAS"?sedeSel:cluster==="TODOS"?`${filas.length} sedes`:cluster}</div></div>
+          <div className="dt">{alcance}</div></div>
         <div className="kpi"><div className="lb">Faltan</div>
           <div className="vl num" style={{color:k.fa>0?"var(--red)":"var(--forest)"}}>{k.fa>0?fmt2(k.fa):"0"}</div>
           <div className="dt">{k.fa>0?"para llegar al objetivo":"objetivo alcanzado"}</div></div>
@@ -1127,7 +1216,7 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
 
       <div className="card">
         <h3>{graf.titulo}</h3>
-        <div className="hint">{sedeSel!=="TODAS"?sedeSel:cluster==="TODOS"?"Todas las sedes":cluster}</div>
+        <div className="hint">{alcance}</div>
         <Barras {...graf}/>
         <div className="lg">
           <span><span className="sw" style={{background:"var(--forest)"}}/>Inscritos</span>
@@ -1138,12 +1227,12 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
       </div>
 
       <div className="card">
-        <h3>{sedeSel!=="TODAS"?`Cumplimiento · ${sedeSel}`:"Cumplimiento por sede"}</h3>
+        <h3>{sedeSet.length===1?`Cumplimiento · ${sedeSet[0]}`:"Cumplimiento por sede"}</h3>
         <div className="hint">
           {vista==="anual"   && "Objetivo anual = suma de los 12 objetivos mensuales."}
-          {vista==="mensual" && `Objetivo del mes completo (${diasMes(anio,mes)} días).`}
+          {vista==="mensual" && (meses.length>1?`Objetivo = suma de los meses elegidos.`:`Objetivo del mes completo (${diasMes(anio,mesRef)} días).`)}
           {vista==="semanal" && "Objetivo semanal = objetivo diario × días de esa semana dentro del mes."}
-          {vista==="diario"  && `Objetivo diario = objetivo mensual ÷ ${diasMes(anio,mes)} días.`}
+          {vista==="diario"  && `Objetivo diario = objetivo mensual ÷ ${diasMes(anio,mesRef)} días.`}
           {" "}Toca un encabezado para ordenar.
         </div>
         <TablaSedes filas={filas} vista={vista}/>
