@@ -24,7 +24,12 @@ No hay nada que compilar ni instalar: es un solo archivo HTML.
 - **Reportes diarios**: los archivos que llegan día a día ya sumados por sede
   (`reporte-registro-AAAA-MM-DD.xlsx`). Se acumulan y se suman a la base. La fecha se toma
   del nombre del archivo. Si se sube uno repetido, se ignora.
-- **Memoria**: un archivo `.json` con todo lo acumulado (reportes, presupuesto y sedes).
+- **Adopción de escaneo (IA)**: el reporte diario de cédulas por sede
+  (`adopcion-escaneo-AAAA-MM-DD.xlsx`, columnas `Sede`, `Cédulas`, `Escaneos (IA)`,
+  `Manuales`, `% Manual`, `Rechazos`). Se acumula igual que los reportes diarios y la fecha
+  se toma del nombre del archivo; si se sube un día repetido, reemplaza al anterior. Con él
+  se calcula la columna **% Escaneo (IA)** del tablero.
+- **Memoria**: un archivo `.json` con todo lo acumulado (reportes, escaneos, presupuesto y sedes).
   Se carga al empezar y se guarda al terminar. Sirve para pasar la información a otro
   computador o para respaldarla.
 
@@ -58,6 +63,11 @@ No hay nada que compilar ni instalar: es un solo archivo HTML.
 | Anual    | suma de los 12 objetivos mensuales |
 
 **Faltan** = objetivo − inscritos (nunca es negativo).
+
+**% Escaneo (IA)** = escaneos (IA) ÷ cédulas de la sede en el período elegido. Se suman los
+conteos de los días que caen en el filtro (día, semana, mes o año) y luego se divide, así el
+porcentaje de una semana o un mes queda ponderado por el número de cédulas. Respeta los
+filtros de cluster y sede, sale en la tabla, en un indicador arriba y en el Excel exportado.
 
 Estados: **CUMPLE** desde 100% · **EN RIESGO** entre 85% y 99% · **NO CUMPLE** por debajo
 de 85% · **SIN OBJETIVO** cuando la sede no tiene presupuesto en ese período.
