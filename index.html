@@ -183,7 +183,7 @@ tr.tot td{font-weight:700;background:#eef2ec;border-top:2px solid var(--forest);
 .pb{display:flex;align-items:center;gap:8px;justify-content:flex-end}
 .trk{position:relative;width:96px;height:7px;border-radius:100px;background:#e6ece3;overflow:hidden;flex-shrink:0}
 .trk i{position:absolute;left:0;top:0;bottom:0;border-radius:100px;background:var(--lime)}
-.trk i.wr{background:#d9a441}.trk i.no{background:var(--red)}
+.trk i.wr{background:#d9a441}.trk i.no{background:var(--red)}.trk i.esc{background:var(--forest)}
 
 /* chart */
 .cw{margin:2px 0 0}
@@ -520,6 +520,60 @@ function leerAnexo(buf, nombre, mapa, suave){
   return {fecha:f,filas:out,total:tot,recuperados:rec,sinMapeo:[...sinMapeo]};
 }
 
+/** Lee el reporte de adopción de escaneo (adopcion-escaneo-AAAA-MM-DD.xlsx).
+    Columnas: Sede | Cédulas | Escaneos (IA) | Manuales | % Manual | Rechazos.
+    Se guardan los conteos (no el %), para poder sumarlos en cualquier período. */
+function leerEscaneo(buf, nombre, mapa, suave){
+  const mf=nombre.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(!mf) throw new Error(`«${nombre}»: el nombre del archivo no trae la fecha (se espera algo como adopcion-escaneo-2026-10-13).`);
+  const f=`${mf[1]}-${mf[2]}-${mf[3]}`;
+  const wb=XLSX.read(buf,{type:"array"});
+  const hoja=wb.SheetNames.find(n=>n.toLowerCase().includes("sede"))||wb.SheetNames[0];
+  const filas=XLSX.utils.sheet_to_json(wb.Sheets[hoja],{defval:null});
+  if(!filas.length) throw new Error(`«${nombre}»: la hoja está vacía.`);
+  const k0=Object.keys(filas[0]);
+  const low=k=>k.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+  const kSede=k0.find(k=>low(k)==="sede")||k0[0];
+  const kCed =k0.find(k=>low(k).includes("cedula"));
+  const kEsc =k0.find(k=>low(k).includes("escaneo"));
+  const kMan =k0.find(k=>low(k).includes("manual")&&!k.includes("%"));
+  const kRec =k0.find(k=>low(k).includes("rechazo"));
+  if(!kEsc) throw new Error(`«${nombre}»: falta la columna «Escaneos (IA)».`);
+  if(!kCed&&!kMan) throw new Error(`«${nombre}»: falta la columna «Cédulas».`);
+  const num=v=>{const n=Number(v);return isFinite(n)&&n>0?n:0;};
+  const acum=new Map(); const sinMapeo=new Set();
+  for(const r of filas){
+    const so=norm(r[kSede]); if(!so) continue;
+    const e=num(r[kEsc]), m=kMan?num(r[kMan]):0;
+    const c=kCed?num(r[kCed]):e+m;
+    if(!c&&!e) continue;
+    const sede=buscarSede(so,mapa,suave); if(!sede) sinMapeo.add(so);
+    const s=sede||so, a=acum.get(s)||{f,s,c:0,e:0,m:0,r:0};
+    a.c+=c; a.e+=e; a.m+=m; a.r+=kRec?num(r[kRec]):0;
+    acum.set(s,a);
+  }
+  const out=[...acum.values()];
+  if(!out.length) throw new Error(`«${nombre}»: no encontré sedes con cédulas registradas.`);
+  return {fecha:f,filas:out,sinMapeo:[...sinMapeo]};
+}
+
+/** Suma cédulas y escaneos por sede dentro del período elegido (mismos filtros que la tabla). */
+function escaneosPorSede(escaneos,ignorar,{vista,anio,meses,semanas,dias}){
+  const setMes=new Set(vista==="anual"?[]:(meses||[])), setSem=new Set(semanas||[]), setDia=new Set(dias||[]);
+  const out=new Map();
+  for(const r of escaneos||[]){
+    if(ignorar&&ignorar.has(r.s)) continue;
+    const {y,m,d}=partes(r.f);
+    if(y!==anio) continue;
+    if(setMes.size&&!setMes.has(m)) continue;
+    if(vista==="semanal"&&setSem.size&&!setSem.has(semanaDe(y,m,d))) continue;
+    if(vista==="diario" &&setDia.size&&!setDia.has(d)) continue;
+    const a=out.get(r.s)||{c:0,e:0};
+    a.c+=r.c; a.e+=r.e; out.set(r.s,a);
+  }
+  return out;
+}
+
 /* ══════════ cálculo ══════════ */
 function useHechos(habeas,anexos,ignorar){
   return useMemo(()=>{
@@ -546,7 +600,7 @@ function useHechos(habeas,anexos,ignorar){
     meses/semanas/dias son ARREGLOS; vacío significa "todos los del período".
     El objetivo de cada sede es la SUMA de los objetivos de los períodos elegidos,
     así el porcentaje refleja exactamente lo que se está mirando. */
-function construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,meses,semanas,dias}){
+function construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,meses,semanas,dias},esc){
   const objMensual=(y,m,s)=>{const v=presu[`${y}-${p2(m)}|${s}`];return (v==null||v==="")?null:Number(v);};
   const objDiario =(y,m,s)=>{const o=objMensual(y,m,s);return o==null?null:o/diasMes(y,m);};
 
@@ -606,10 +660,12 @@ function construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,meses,semanas,dia
 
     const obj=objetivo==null?null:Math.round(objetivo*100)/100;
     const p=(obj==null||obj<=0)?null:inscritos/obj;
+    const sc=esc&&esc.get(s);
     return {sede:s,cluster:CLUSTER_BY_SEDE.get(s)||"Sin cluster",inscritos,objetivo:obj,
       faltante:obj==null?null:Math.round(Math.max(0,obj-inscritos)*100)/100,
-      pct:p,estado:estadoDe(p)};
-  }).filter(r=>r.inscritos>0||r.objetivo!=null);
+      pct:p,estado:estadoDe(p),
+      ced:sc?sc.c:0, esc:sc?sc.e:0, pctEsc:sc&&sc.c>0?sc.e/sc.c:null};
+  }).filter(r=>r.inscritos>0||r.objetivo!=null||r.ced>0);
   return filas;
 }
 let CLUSTER_BY_SEDE=new Map();
@@ -625,8 +681,10 @@ function totales(filas){
   const iComp =conObj.reduce((a,f)=>a+f.inscritos,0);     // solo los comparables
   const o     =conObj.reduce((a,f)=>a+f.objetivo,0);
   const fa    =conObj.reduce((a,f)=>a+(f.faltante||0),0);
+  const ced=filas.reduce((a,f)=>a+(f.ced||0),0);
+  const esc=filas.reduce((a,f)=>a+(f.esc||0),0);
   return {i,iComp,o,fa,nCon:conObj.length,nSin:filas.length-conObj.length,
-          p:o>0?iComp/o:null};
+          p:o>0?iComp/o:null, ced, esc, pEsc:ced>0?esc/ced:null};
 }
 
 /* ══════════ gráfica de barras ══════════ */
@@ -757,7 +815,7 @@ function MultiSelect({label,opciones,sel,onChange,textoTodas,render}){
 }
 
 /* ══════════ tabla de sedes ══════════ */
-function TablaSedes({filas,vista}){
+function TablaSedes({filas,vista,conEsc}){
   const [sort,setSort]=useState({c:"pct",d:-1});
   const orden=useMemo(()=>{
     const a=[...filas];
@@ -787,6 +845,7 @@ function TablaSedes({filas,vista}){
           {th("faltante","Faltan","r")}
           {th("pct","% Cumplimiento","r")}
           <th>Estado</th>
+          {conEsc && th("pctEsc","% Escaneo (IA)","r")}
         </tr></thead>
         <tbody>
           {orden.map(f=>(
@@ -805,6 +864,7 @@ function TablaSedes({filas,vista}){
                 </div>
               </td>
               <td><span className={"tag "+tagCls(f.estado)}>{f.estado}</span></td>
+              {conEsc && <td className="r"><EscCelda e={f.esc} c={f.ced} p={f.pctEsc}/></td>}
             </tr>
           ))}
           <tr className="tot">
@@ -814,9 +874,16 @@ function TablaSedes({filas,vista}){
             <td className="r num">{t.fa>0?fmt2(t.fa):"✓"}</td>
             <td className="r num" title={t.nSin>0?`Calculado sobre ${fmt(t.iComp)} inscritos de las ${t.nCon} sedes con objetivo`:""}>{pct(tp)}</td>
             <td><span className={"tag "+tagCls(estadoDe(tp))}>{estadoDe(tp)}</span></td>
+            {conEsc && <td className="r"><EscCelda e={t.esc} c={t.ced} p={t.pEsc}/></td>}
           </tr>
         </tbody>
       </table>
+      {conEsc && (
+        <div className="nota-pie">
+          % Escaneo (IA) = cédulas registradas con escaneo ÷ total de cédulas (escaneadas + manuales) en el período.
+          Sale de los reportes de adopción de escaneo; «—» quiere decir que esa sede no tiene reporte en ese período.
+        </div>
+      )}
       {t.nSin>0 && (
         <div className="nota-pie">
           {t.nCon===0
@@ -831,11 +898,25 @@ function TablaSedes({filas,vista}){
   );
 }
 
+/** Celda de % escaneo: el porcentaje y, debajo, de cuántas cédulas sale. */
+function EscCelda({e,c,p}){
+  if(p==null) return <span style={{color:"var(--muted-2)"}}>—</span>;
+  return (
+    <div className="pb" title={`${fmt(e)} escaneadas de ${fmt(c)} cédulas`}>
+      <span className="trk"><i className="esc" style={{width:Math.min(100,p*100)+"%"}}/></span>
+      <span style={{minWidth:50,textAlign:"right",lineHeight:1.15}}>
+        <b className="num">{pct(p)}</b>
+        <small className="num" style={{display:"block",fontSize:10.5,color:"var(--muted-2)"}}>{fmt(e)}/{fmt(c)}</small>
+      </span>
+    </div>
+  );
+}
+
 /* ══════════ pestaña DATOS ══════════ */
-function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,notify,hechos,setTab,usarAnexos,setUsarAnexos,guardaLocal,onLimpiar}){
+function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,onMemoria,memoria,notify,hechos,setTab,usarAnexos,setUsarAnexos,guardaLocal,onLimpiar}){
   const [drag,setDrag]=useState(null);
   const [err,setErr]=useState(null);
-  const rH=useRef(),rA=useRef(),rM=useRef();
+  const rH=useRef(),rA=useRef(),rM=useRef(),rE=useRef();
 
   const [leyendo,setLeyendo]=useState(false);
   const cargarHabeas=file=>{
@@ -888,6 +969,32 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
     }
   };
 
+  const cargarEscaneos=files=>{
+    setErr(null);
+    const lista=[...files]; let hechas=0, nuevas=[], errores=[], sm=new Set();
+    lista.forEach(file=>{
+      const fr=new FileReader();
+      fr.onload=e=>{
+        try{
+          const r=leerEscaneo(new Uint8Array(e.target.result),file.name,mapa,suave);
+          nuevas.push(...r.filas); r.sinMapeo.forEach(s=>sm.add(s));
+        }catch(x){ errores.push(x.message); }
+        if(++hechas===lista.length) cerrar();
+      };
+      fr.onerror=()=>{ errores.push(`No pude leer «${file.name}».`); if(++hechas===lista.length) cerrar(); };
+      fr.readAsArrayBuffer(file);
+    });
+    function cerrar(){
+      if(nuevas.length){
+        const res=onEscaneos(nuevas);
+        const c=nuevas.reduce((a,x)=>a+x.c,0), e=nuevas.reduce((a,x)=>a+x.e,0);
+        notify(`Escaneo ${res.dias.length===1?`del ${res.dias[0]}`:`de ${res.dias.length} días`}: ${fmt(e)} de ${fmt(c)} cédulas (${pct(c?e/c:null)})`);
+      }
+      if(errores.length) setErr(errores.join("  "));
+      if(sm.size) setErr(p=>(p?p+"  ":"")+`Sedes de escaneo sin mapear (no entran a la tabla): ${[...sm].join(", ")}. Agrégalas en Configuración si deben contar.`);
+    }
+  };
+
   const cargarMemoria=file=>{
     setErr(null);
     const fr=new FileReader();
@@ -909,7 +1016,7 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
       onDrop={e=>{e.preventDefault();setDrag(null);if(e.dataTransfer.files.length)onFile(multi?e.dataTransfer.files:e.dataTransfer.files[0]);}}>
       <h4>{tit}</h4><p>{txt}</p>
       <button className="btn" disabled={leyendo}
-        onClick={()=>({h:rH,a:rA,m:rM})[id].current.click()}>{leyendo?"Leyendo…":btn}</button>
+        onClick={()=>({h:rH,a:rA,m:rM,e:rE})[id].current.click()}>{leyendo?"Leyendo…":btn}</button>
     </div>
   );
 
@@ -918,6 +1025,11 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
     (anexos||[]).forEach(a=>m.set(a.f,(m.get(a.f)||0)+a.n));
     return [...m].sort((a,b)=>b[0]<a[0]?-1:1);
   },[anexos]);
+  const escaneosPorFecha=useMemo(()=>{
+    const m=new Map();
+    (escaneos||[]).forEach(a=>{const x=m.get(a.f)||{c:0,e:0}; x.c+=a.c; x.e+=a.e; m.set(a.f,x);});
+    return [...m].sort((a,b)=>b[0]<a[0]?-1:1);
+  },[escaneos]);
 
   return (
     <div>
@@ -925,6 +1037,8 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
         onChange={e=>{if(e.target.files[0])cargarHabeas(e.target.files[0]);e.target.value="";}}/>
       <input ref={rA} type="file" accept=".xlsx,.xls" multiple style={{display:"none"}}
         onChange={e=>{if(e.target.files.length)cargarAnexos(e.target.files);e.target.value="";}}/>
+      <input ref={rE} type="file" accept=".xlsx,.xls" multiple style={{display:"none"}}
+        onChange={e=>{if(e.target.files.length)cargarEscaneos(e.target.files);e.target.value="";}}/>
       <input ref={rM} type="file" accept=".json" style={{display:"none"}}
         onChange={e=>{if(e.target.files[0])cargarMemoria(e.target.files[0]);e.target.value="";}}/>
 
@@ -932,7 +1046,7 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
 
       <div className="card">
         <h3>Memoria</h3>
-        <div className="hint">Un archivo con todo lo acumulado: los anexos diarios, el presupuesto y la configuración de sedes. Cárgalo al empezar y guárdalo al terminar.</div>
+        <div className="hint">Un archivo con todo lo acumulado: los anexos diarios, los reportes de escaneo, el presupuesto y la configuración de sedes. Cárgalo al empezar y guárdalo al terminar.</div>
         <div className="row">
           <button className="btn lime" onClick={memoria}>Guardar memoria</button>
           <button className="btn gh" onClick={()=>rM.current.click()}>Cargar memoria</button>
@@ -997,6 +1111,26 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
         )}
       </div>
 
+      <div className="card">
+        <h3>Adopción de escaneo (IA)</h3>
+        <div className="hint">El reporte diario de cédulas por sede: cuántas se registraron con escaneo (IA) y cuántas a mano. Con él se calcula la columna <b>% Escaneo (IA)</b> del tablero, que respeta los mismos filtros de período, cluster y sede. La fecha se toma del nombre del archivo; si vuelves a subir un día, reemplaza al anterior.</div>
+        {dz("e","Sube los reportes de escaneo","Puedes arrastrar varios a la vez. Ejemplo: adopcion-escaneo-2026-10-13.xlsx","Buscar archivos",cargarEscaneos,true)}
+        {escaneosPorFecha.length>0 && (
+          <div style={{marginTop:14}}>
+            <div className="eyebrow" style={{marginBottom:8}}>{escaneosPorFecha.length} días cargados</div>
+            <div className="tw" style={{maxHeight:230,overflowY:"auto"}}>
+              <table>
+                <thead><tr><th>Fecha</th><th className="r">Cédulas</th><th className="r">Escaneos (IA)</th><th className="r">% Escaneo</th></tr></thead>
+                <tbody>{escaneosPorFecha.map(([f,x])=>(
+                  <tr key={f}><td>{f}</td><td className="r num">{fmt(x.c)}</td><td className="r num">{fmt(x.e)}</td>
+                    <td className="r num">{pct(x.c?x.e/x.c:null)}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
       {(habeas||anexos?.length>0) && (
         <div className="card">
           <h3>Consolidado</h3>
@@ -1017,7 +1151,7 @@ function Datos({habeas,anexos,mapa,suave,onHabeas,onAnexos,onMemoria,memoria,not
 }
 
 /* ══════════ pestaña DASHBOARD ══════════ */
-function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
+function Dashboard({hechos,presu,mapa,cfgSedes,capturando,escaneos,ignorar}){
   const hoy=new Date();
   const aniosDisp=hechos.anios.length?hechos.anios:[hoy.getFullYear()];
   const [vista,setVista]=useState("mensual");
@@ -1037,8 +1171,12 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
   // limpiar selecciones que se salen de rango al cambiar de mes/año
   useEffect(()=>{ setSemanas(prev=>prev.filter(w=>w<=nSem)); setDias(prev=>prev.filter(d=>d<=nDia)); },[anio,mesRef]);
 
-  const filasTodas=useMemo(()=>construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,meses,semanas,dias}),
-    [hechos,presu,mapa,cfgSedes,vista,anio,meses.join(),semanas.join(),dias.join()]);
+  const conEsc=(escaneos||[]).length>0;
+  const filasTodas=useMemo(()=>{
+    const per={vista,anio,meses,semanas,dias};
+    const esc=conEsc?escaneosPorSede(escaneos,ignorar,per):null;
+    return construirTabla(hechos,presu,mapa,cfgSedes,per,esc);
+  },[hechos,presu,mapa,cfgSedes,escaneos,ignorar,vista,anio,meses.join(),semanas.join(),dias.join()]);
   const filas=useMemo(()=>{
     let f=filasTodas;
     if(cluster!=="TODOS") f=f.filter(x=>x.cluster===cluster);
@@ -1126,15 +1264,19 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
       Objetivo:f.objetivo==null?null:Math.round(f.objetivo*100)/100,
       Faltan:f.faltante==null?null:Math.round(f.faltante*100)/100,
       "% Cumplimiento":f.pct==null?null:Math.round(f.pct*1000)/10,
-      Estado:f.estado});
+      Estado:f.estado,
+      ...(conEsc?{"Cédulas":f.ced,"Escaneos (IA)":f.esc,
+        "% Escaneo (IA)":f.pctEsc==null?null:Math.round(f.pctEsc*1000)/10}:{})});
     const datos=[...filas].sort((a,b)=>(b.pct??-1)-(a.pct??-1)).map(fila);
     datos.push({Sede:"TOTAL",Cluster:`${filas.length} sedes`,Inscritos:t.i,
       Objetivo:Math.round(t.o*100)/100,Faltan:Math.round(t.fa*100)/100,
-      "% Cumplimiento":tp==null?null:Math.round(tp*1000)/10,Estado:estadoDe(tp)});
+      "% Cumplimiento":tp==null?null:Math.round(tp*1000)/10,Estado:estadoDe(tp),
+      ...(conEsc?{"Cédulas":t.ced,"Escaneos (IA)":t.esc,
+        "% Escaneo (IA)":t.pEsc==null?null:Math.round(t.pEsc*1000)/10}:{})});
     const et=(vista==="anual"?`anual_${anio}`:`${vista}_${anio}`).toLowerCase()
       + (meses.length?"_"+meses.slice().sort((a,b)=>a-b).map(m=>MES_C[m-1]).join("-").toLowerCase():"");
     const sf=sedeSet.length===1?"_"+sedeSet[0].replace(/\s+/g,"_").toLowerCase():"";
-    bajarXLSX(datos,"Cumplimiento",`clientes_nuevos_${et}${sf}.xlsx`,[30,22,14,12,12,16,14]);
+    bajarXLSX(datos,"Cumplimiento",`clientes_nuevos_${et}${sf}.xlsx`,[30,22,14,12,12,16,14,11,14,15]);
   };
 
   const alcance = sedeSet.length===1 ? sedeSet[0]
@@ -1212,6 +1354,9 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
         <div className="kpi"><div className="lb">Sedes que cumplen</div>
           <div className="vl num">{k.cum}<span style={{fontSize:15,color:"var(--muted-2)"}}> / {k.conObj}</span></div>
           <div className="dt">con objetivo definido</div></div>
+        {conEsc && <div className="kpi"><div className="lb">% Escaneo (IA)</div>
+          <div className="vl num" style={{color:k.pEsc==null?"var(--muted-2)":"var(--forest)"}}>{pct(k.pEsc)}</div>
+          <div className="dt">{k.ced>0?`${fmt(k.esc)} de ${fmt(k.ced)} cédulas`:"sin reporte en este período"}</div></div>}
       </div>
 
       <div className="card">
@@ -1235,7 +1380,7 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando}){
           {vista==="diario"  && `Objetivo diario = objetivo mensual ÷ ${diasMes(anio,mesRef)} días.`}
           {" "}Toca un encabezado para ordenar.
         </div>
-        <TablaSedes filas={filas} vista={vista}/>
+        <TablaSedes filas={filas} vista={vista} conEsc={conEsc}/>
       </div>
     </div>
   );
@@ -1428,6 +1573,7 @@ function App(){
   const [ini]=useState(leerLocal);   // perezoso: se lee una sola vez, no en cada render
   const [habeas,setHabeas]=useState(ini?.habeas??null);
   const [anexos,setAnexos]=useState(ini?.anexos??[]);
+  const [escaneos,setEscaneos]=useState(ini?.escaneos??[]);
   const [presu,setPresu]=useState(ini?.presupuesto??{});
   const [mapeo,setMapeo]=useState(ini?.mapeo?.length?migrarMapeo(ini.mapeo):MAPEO_INI);
   const [usarAnexos,setUsarAnexos]=useState(ini?.usarAnexos??true);
@@ -1458,11 +1604,11 @@ function App(){
 
   useEffect(()=>{
     const t=setTimeout(()=>{
-      const ok=escribirLocal({habeas,anexos,presupuesto:presu,mapeo,usarAnexos});
+      const ok=escribirLocal({habeas,anexos,escaneos,presupuesto:presu,mapeo,usarAnexos});
       setGuardaLocal(ok);
     },900);                       // espera a que dejes de escribir para no trabar la app
     return ()=>clearTimeout(t);
-  },[habeas,anexos,presu,mapeo,usarAnexos]);
+  },[habeas,anexos,escaneos,presu,mapeo,usarAnexos]);
 
 /** Incorpora reportes diarios. Cada archivo es la foto completa de SU día,
     así que si vuelve a llegar un reporte de una fecha ya cargada, reemplaza
@@ -1479,10 +1625,17 @@ const addAnexos = useCallback(nuevas => {
   return {agregados, reemplazados, dias:[...dias].sort()};
 }, []);
 
+  /** Igual que los reportes diarios: un día que vuelve a llegar reemplaza al anterior. */
+  const addEscaneos=useCallback(nuevas=>{
+    const dias=new Set(nuevas.map(a=>a.f));
+    setEscaneos(prev=>[...prev.filter(a=>!dias.has(a.f)),...nuevas]);
+    return {dias:[...dias].sort()};
+  },[]);
+
   const guardarMemoria=useCallback(()=>{
     const hoy=new Date();
     const payload={tipo:"memoria_clientes_nuevos",version:1,
-      guardado:hoy.toISOString(),habeas,anexos,presupuesto:presu,mapeo,usarAnexos};
+      guardado:hoy.toISOString(),habeas,anexos,escaneos,presupuesto:presu,mapeo,usarAnexos};
     try{
       const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
       const url=URL.createObjectURL(blob);
@@ -1493,17 +1646,18 @@ const addAnexos = useCallback(nuevas => {
       setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
       notify("Memoria guardada");
     }catch(e){ notify("No pude generar el archivo: "+e.message); }
-  },[habeas,anexos,presu,mapeo,usarAnexos,notify]);
+  },[habeas,anexos,escaneos,presu,mapeo,usarAnexos,notify]);
 
   const cargarMemoria=useCallback(j=>{
     if(j.habeas) setHabeas(j.habeas);
     if(Array.isArray(j.anexos)) setAnexos(j.anexos);
+    if(Array.isArray(j.escaneos)) setEscaneos(j.escaneos);
     if(j.presupuesto) setPresu(j.presupuesto);
     if(Array.isArray(j.mapeo)&&j.mapeo.length) setMapeo(migrarMapeo(j.mapeo));
     if(typeof j.usarAnexos==="boolean") setUsarAnexos(j.usarAnexos);
   },[]);
 
-  const hayDatos=habeas||anexos.length>0;
+  const hayDatos=habeas||anexos.length>0||escaneos.length>0;
   const capRef=useRef(null);
   const [capturando,setCapturando]=useState(false);
   const [menu,setMenu]=useState(false);
@@ -1583,13 +1737,13 @@ const addAnexos = useCallback(nuevas => {
 
   const panelDatos=(
     <Datos habeas={habeas} anexos={anexos} mapa={mapa} suave={suave} hechos={hechos}
-      onHabeas={setHabeas} onAnexos={addAnexos} 
+      onHabeas={setHabeas} onAnexos={addAnexos} escaneos={escaneos} onEscaneos={addEscaneos}
       onMemoria={cargarMemoria} /* <--- AQUÍ ESTABA EL ERROR (antes decía guardarMemoria) */
       memoria={guardarMemoria} notify={notify} setTab={()=>setModal(null)}
       usarAnexos={usarAnexos} setUsarAnexos={setUsarAnexos}
       guardaLocal={guardaLocal} onLimpiar={()=>{
         if(!confirm("Esto borra la base, los reportes y el presupuesto de este equipo. La memoria que hayas guardado no se toca. ¿Sigues?")) return;
-        borrarLocal(); setHabeas(null); setAnexos([]); setPresu({}); setMapeo(MAPEO_INI); notify("Todo borrado");
+        borrarLocal(); setHabeas(null); setAnexos([]); setEscaneos([]); setPresu({}); setMapeo(MAPEO_INI); notify("Todo borrado");
       }}/>
   );
 
@@ -1666,7 +1820,8 @@ const addAnexos = useCallback(nuevas => {
 
       <div className={"main"+(capturando?" capturando":"")} ref={capRef}>
         {hayDatos
-          ? <Dashboard hechos={hechos} presu={presu} mapa={mapa} cfgSedes={cfgSedes} capturando={capturando}/>
+          ? <Dashboard hechos={hechos} presu={presu} mapa={mapa} cfgSedes={cfgSedes} capturando={capturando}
+              escaneos={escaneos} ignorar={ignorar}/>
           : <div className="card"><div className="empty">
               <img src={MASCOTA} alt=""/>
               <h4>Empecemos</h4>
