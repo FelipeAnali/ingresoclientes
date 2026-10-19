@@ -202,6 +202,10 @@ tr.tot td{font-weight:700;background:#eef2ec;border-top:2px solid var(--forest);
 .mp input,.mp select{border:1px solid var(--line-strong);border-radius:8px;padding:6px 9px;width:100%;font-size:12.5px}
 .mp .x{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--red);font-size:16px;border:1px solid transparent}
 .mp .x:hover{background:var(--red-soft);border-color:#eec3be}
+.del{width:26px;height:26px;border-radius:7px;display:inline-grid;place-items:center;color:var(--muted-2);font-size:15px;line-height:1;border:1px solid transparent}
+.del:hover{background:var(--red-soft);color:var(--red);border-color:#eec3be}
+.lst-h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.lst-h .btn{margin-left:auto}
 .mph{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-2)}
 
 .note{border-radius:10px;padding:10px 13px;font-size:12.5px;margin-bottom:13px;border:1px solid}
@@ -913,7 +917,7 @@ function EscCelda({e,c,p}){
 }
 
 /* ══════════ pestaña DATOS ══════════ */
-function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,onMemoria,memoria,notify,hechos,setTab,usarAnexos,setUsarAnexos,guardaLocal,onLimpiar}){
+function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,onBorrar,onMemoria,memoria,notify,hechos,setTab,usarAnexos,setUsarAnexos,guardaLocal,onLimpiar}){
   const [drag,setDrag]=useState(null);
   const [err,setErr]=useState(null);
   const rH=useRef(),rA=useRef(),rM=useRef(),rE=useRef();
@@ -1076,6 +1080,7 @@ function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,o
         ) : dz("h","Sube la base de Habeas Data","Arrastra el .xlsx o búscalo. Se lee la hoja «Habeas Data».","Buscar archivo",cargarHabeas,false)}
         {habeas && <div className="row" style={{marginTop:10}}>
           <button className="btn gh sm" disabled={leyendo} onClick={()=>rH.current.click()}>{leyendo?"Leyendo…":"Reemplazar base"}</button>
+          <button className="btn gh dg sm" disabled={leyendo} onClick={()=>onBorrar("habeas")}>Quitar base</button>
         </div>}
         {habeas?.sinMapeo?.length>0 &&
           <div className="note w" style={{marginTop:12,marginBottom:0}}>
@@ -1098,12 +1103,17 @@ function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,o
                 Compara un mismo día con y sin la marca para saber cuál es tu caso.</span>
               </label>
             </div>
-            <div className="eyebrow" style={{marginBottom:8}}>{anexosPorFecha.length} días cargados · {fmt(anexos.reduce((a,x)=>a+x.n,0))} registros{usarAnexos?"":" (sin sumar)"}</div>
+            <div className="lst-h">
+              <div className="eyebrow">{anexosPorFecha.length} días cargados · {fmt(anexos.reduce((a,x)=>a+x.n,0))} registros{usarAnexos?"":" (sin sumar)"}</div>
+              <button className="btn gh dg sm" onClick={()=>onBorrar("anexos")}>Borrar todos</button>
+            </div>
             <div className="tw" style={{maxHeight:230,overflowY:"auto"}}>
               <table>
-                <thead><tr><th>Fecha</th><th className="r">Registros</th></tr></thead>
+                <thead><tr><th>Fecha</th><th className="r">Registros</th><th/></tr></thead>
                 <tbody>{anexosPorFecha.map(([f,n])=>(
-                  <tr key={f}><td>{f}</td><td className="r num">{fmt(n)}</td></tr>
+                  <tr key={f}><td>{f}</td><td className="r num">{fmt(n)}</td>
+                    <td className="r" style={{width:40}}><button className="del" title={`Borrar el reporte del ${f}`}
+                      aria-label={`Borrar el reporte del ${f}`} onClick={()=>onBorrar("anexos",f)}>×</button></td></tr>
                 ))}</tbody>
               </table>
             </div>
@@ -1117,13 +1127,18 @@ function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,o
         {dz("e","Sube los reportes de escaneo","Puedes arrastrar varios a la vez. Ejemplo: adopcion-escaneo-2026-10-13.xlsx","Buscar archivos",cargarEscaneos,true)}
         {escaneosPorFecha.length>0 && (
           <div style={{marginTop:14}}>
-            <div className="eyebrow" style={{marginBottom:8}}>{escaneosPorFecha.length} días cargados</div>
+            <div className="lst-h">
+              <div className="eyebrow">{escaneosPorFecha.length} días cargados</div>
+              <button className="btn gh dg sm" onClick={()=>onBorrar("escaneos")}>Borrar todos</button>
+            </div>
             <div className="tw" style={{maxHeight:230,overflowY:"auto"}}>
               <table>
-                <thead><tr><th>Fecha</th><th className="r">Cédulas</th><th className="r">Escaneos (IA)</th><th className="r">% Escaneo</th></tr></thead>
+                <thead><tr><th>Fecha</th><th className="r">Cédulas</th><th className="r">Escaneos (IA)</th><th className="r">% Escaneo</th><th/></tr></thead>
                 <tbody>{escaneosPorFecha.map(([f,x])=>(
                   <tr key={f}><td>{f}</td><td className="r num">{fmt(x.c)}</td><td className="r num">{fmt(x.e)}</td>
-                    <td className="r num">{pct(x.c?x.e/x.c:null)}</td></tr>
+                    <td className="r num">{pct(x.c?x.e/x.c:null)}</td>
+                    <td className="r" style={{width:40}}><button className="del" title={`Borrar el escaneo del ${f}`}
+                      aria-label={`Borrar el escaneo del ${f}`} onClick={()=>onBorrar("escaneos",f)}>×</button></td></tr>
                 ))}</tbody>
               </table>
             </div>
@@ -1602,13 +1617,20 @@ function App(){
   const hechos=useHechos(habeas,usarAnexos?anexos:SIN_ANEXOS,ignorar);
   const [guardaLocal,setGuardaLocal]=useState(true);
 
+  const pendiente=useRef(null);   // último estado aún sin escribir
   useEffect(()=>{
+    pendiente.current={habeas,anexos,escaneos,presupuesto:presu,mapeo,usarAnexos};
     const t=setTimeout(()=>{
-      const ok=escribirLocal({habeas,anexos,escaneos,presupuesto:presu,mapeo,usarAnexos});
+      const ok=escribirLocal(pendiente.current); pendiente.current=null;
       setGuardaLocal(ok);
     },900);                       // espera a que dejes de escribir para no trabar la app
     return ()=>clearTimeout(t);
   },[habeas,anexos,escaneos,presu,mapeo,usarAnexos]);
+  // si se refresca o cierra antes de que pase la espera, guardar ya
+  useEffect(()=>{
+    const f=()=>{ if(pendiente.current){ escribirLocal(pendiente.current); pendiente.current=null; } };
+    window.addEventListener("pagehide",f); return ()=>window.removeEventListener("pagehide",f);
+  },[]);
 
 /** Incorpora reportes diarios. Cada archivo es la foto completa de SU día,
     así que si vuelve a llegar un reporte de una fecha ya cargada, reemplaza
@@ -1631,6 +1653,16 @@ const addAnexos = useCallback(nuevas => {
     setEscaneos(prev=>[...prev.filter(a=>!dias.has(a.f)),...nuevas]);
     return {dias:[...dias].sort()};
   },[]);
+
+  /** Borra lo cargado: la base, un día de reportes/escaneos, o todos los días de un tipo. */
+  const borrar=useCallback((tipo,fecha)=>{
+    const nom={habeas:"la base de Habeas Data",anexos:"los reportes diarios",escaneos:"los reportes de escaneo"}[tipo];
+    const que=fecha?`${tipo==="anexos"?"el reporte diario":"el reporte de escaneo"} del ${fecha}`:nom;
+    if(!confirm(`¿Borrar ${que}? Se puede recuperar subiendo de nuevo el archivo o cargando una memoria guardada.`)) return;
+    if(tipo==="habeas") setHabeas(null);
+    else (tipo==="anexos"?setAnexos:setEscaneos)(prev=>fecha?prev.filter(a=>a.f!==fecha):[]);
+    notify(`Borrado: ${que}`);
+  },[notify]);
 
   const guardarMemoria=useCallback(()=>{
     const hoy=new Date();
@@ -1737,7 +1769,7 @@ const addAnexos = useCallback(nuevas => {
 
   const panelDatos=(
     <Datos habeas={habeas} anexos={anexos} mapa={mapa} suave={suave} hechos={hechos}
-      onHabeas={setHabeas} onAnexos={addAnexos} escaneos={escaneos} onEscaneos={addEscaneos}
+      onHabeas={setHabeas} onAnexos={addAnexos} escaneos={escaneos} onEscaneos={addEscaneos} onBorrar={borrar}
       onMemoria={cargarMemoria} /* <--- AQUÍ ESTABA EL ERROR (antes decía guardarMemoria) */
       memoria={guardarMemoria} notify={notify} setTab={()=>setModal(null)}
       usarAnexos={usarAnexos} setUsarAnexos={setUsarAnexos}
