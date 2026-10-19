@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#05200b" />
 <title>Clientes Nuevos · Supertiendas Cañaveral</title>
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -22,16 +23,17 @@
   --red:#b8342a; --red-soft:#fdecea; --amber:#a86a12; --amber-soft:#fdf3e0;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
 h1,h2,h3,.disp{font-family:'Archivo',system-ui,sans-serif;letter-spacing:-.02em}
-button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;
+  touch-action:manipulation;-webkit-user-select:none;user-select:none}
 input,select{font-family:inherit;font-size:14px}
 .num{font-variant-numeric:tabular-nums}
 ::selection{background:var(--lime);color:var(--ink)}
 :focus-visible{outline:2px solid var(--forest);outline-offset:2px}
 
-.app{min-height:100vh;display:flex;flex-direction:column}
+.app{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
 
 /* header */
 .hd{background:var(--ink);color:#fff;padding:11px 22px;display:flex;align-items:center;gap:14px;
@@ -44,7 +46,8 @@ input,select{font-family:inherit;font-size:14px}
 .chip{font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:100px;
   background:rgba(125,209,5,.12);border:1px solid rgba(125,209,5,.35);color:var(--lime);white-space:nowrap}
 .hbtn{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;
-  padding:7px 13px;border-radius:9px;color:#dbe7db;border:1px solid rgba(255,255,255,.16);transition:.13s}
+  padding:7px 13px;border-radius:9px;color:#dbe7db;border:1px solid rgba(255,255,255,.16);
+  transition:background-color 130ms ease,color 130ms ease,transform 130ms cubic-bezier(.23,1,.32,1)}
 .hbtn:hover{background:rgba(255,255,255,.09);color:#fff}
 .hbtn.on{background:var(--lime);color:var(--ink);border-color:var(--lime)}
 .hbtn.ico{padding:7px 9px}
@@ -100,7 +103,9 @@ input,select{font-family:inherit;font-size:14px}
 .eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--muted-2)}
 
 /* buttons */
-.btn{background:var(--forest);color:#fff;border-radius:9px;padding:9px 16px;font-size:13.5px;font-weight:600;transition:.13s}
+.btn{background:var(--forest);color:#fff;border-radius:9px;padding:9px 16px;font-size:13.5px;font-weight:600;
+  transition:background-color 130ms ease,border-color 130ms ease,transform 130ms cubic-bezier(.23,1,.32,1)}
+.btn:active:not(:disabled),.hbtn:active,.seg button:active,.del:active{transform:scale(.97)}
 .btn:hover{background:#24702f}
 .btn.lime{background:var(--lime);color:var(--ink)}
 .btn.lime:hover{filter:brightness(1.06)}
@@ -113,7 +118,8 @@ input,select{font-family:inherit;font-size:14px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
 /* dropzone */
-.dz{border:1.5px dashed var(--line-strong);border-radius:12px;padding:22px;text-align:center;transition:.13s;background:#fbfcfa}
+.dz{border:1.5px dashed var(--line-strong);border-radius:12px;padding:22px;text-align:center;
+  transition:background-color 130ms ease,border-color 130ms ease;background:#fbfcfa}
 .dz.hot{border-color:var(--lime);background:var(--lime-soft)}
 .dz h4{font-family:'Archivo';font-size:15px;font-weight:700;margin-bottom:4px}
 .dz p{font-size:12.5px;color:var(--muted);margin-bottom:12px}
@@ -186,7 +192,7 @@ tr.tot td{font-weight:700;background:#eef2ec;border-top:2px solid var(--forest);
 .trk i.wr{background:#d9a441}.trk i.no{background:var(--red)}.trk i.esc{background:var(--forest)}
 
 /* chart */
-.cw{margin:2px 0 0}
+.cw{margin:2px 0 0;overflow-x:auto;overscroll-behavior-x:contain}
 .lg{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:10px}
 .lg span{display:inline-flex;align-items:center;gap:6px}
 .sw{width:11px;height:11px;border-radius:3px}
@@ -214,7 +220,9 @@ tr.tot td{font-weight:700;background:#eef2ec;border-top:2px solid var(--forest);
 .note.i{background:var(--lime-soft);border-color:var(--lime-line);color:var(--forest)}
 
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;
-  padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:99;box-shadow:0 10px 30px rgba(5,32,11,.28);max-width:90vw}
+  padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:99;box-shadow:0 10px 30px rgba(5,32,11,.28);max-width:90vw;
+  animation:toastIn 200ms cubic-bezier(.23,1,.32,1)}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
 .nota-pie{font-size:11.5px;color:var(--muted);margin-top:11px;padding-top:10px;border-top:1px dashed var(--line);line-height:1.6}
 .empty{padding:44px 20px;text-align:center;color:var(--muted)}
 .empty img{width:132px;height:auto;margin:0 auto 16px;display:block}
@@ -223,12 +231,28 @@ tr.tot td{font-weight:700;background:#eef2ec;border-top:2px solid var(--forest);
 
 @media(max-width:640px){
   .hd,.main{padding-left:14px;padding-right:14px}
+  .hd{gap:10px}
+  .hd .ttl span,.hd .sep,.hb-t{display:none}
+  .hbtn{padding:7px 9px}
+  .hd-r{gap:6px}
   .main{padding-top:16px}
   .kpi .vl{font-size:22px}
   .trk{width:56px}
   .mp{grid-template-columns:1fr 1fr;gap:6px}
   .mp .x{grid-column:2;justify-self:end}
 }
+/* en pantallas táctiles el «hover» queda pegado tras tocar: se anula */
+@media (hover:none){
+  tbody tr:hover{background:transparent}
+  .btn:hover{background:var(--forest)} .btn.lime:hover{background:var(--lime);filter:none}
+  .btn.gh:hover{background:transparent;border-color:var(--line-strong)} .btn.dg:hover{background:transparent;border-color:#e8bdb8}
+  .hbtn:hover{background:transparent;color:#dbe7db} .hbtn.on:hover{background:var(--lime);color:var(--ink)}
+  .ms-op:hover,.mn button:hover{background:transparent} .del:hover{background:transparent;color:var(--muted-2);border-color:transparent}
+}
+/* iPhone hace zoom en campos con letra menor a 16px */
+@media (pointer:coarse){ input,select,.ms-btn{font-size:16px} }
+@media(max-width:480px){ .hd .chip{display:none} }
+@media(max-width:400px){ .hd .ttl{display:none} }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 /* impresión / guardar como PDF desde el navegador */
@@ -343,7 +367,7 @@ const fmt=n=>(n==null||isNaN(n))?"—":Math.round(n).toLocaleString("es-CO");
 const fmt1=n=>(n==null||isNaN(n))?"—":(Math.round(n*10)/10).toLocaleString("es-CO");
 /** Hasta 2 decimales, sin ceros de relleno: 267 → «267» · 8,6129 → «8,61» */
 const fmt2=n=>(n==null||isNaN(n))?"—":Number(n).toLocaleString("es-CO",{maximumFractionDigits:2});
-const pct=n=>(n==null||!isFinite(n))?"—":(Math.round(n*1000)/10).toLocaleString("es-CO")+"%";
+const pct=n=>(n==null||!isFinite(n))?"—":(n>0&&n<.0005)?"<0,1%":(Math.round(n*1000)/10).toLocaleString("es-CO")+"%";
 const norm=s=>String(s||"").normalize("NFC").trim().toUpperCase().replace(/\s*-\s*/g,"-").replace(/\s+/g," ");
 const diasMes=(y,m)=>new Date(y,m,0).getDate();              // m 1-12
 const dowDia1=(y,m)=>new Date(y,m-1,1).getDay();             // 0=domingo
@@ -536,20 +560,23 @@ function leerEscaneo(buf, nombre, mapa, suave){
   const filas=XLSX.utils.sheet_to_json(wb.Sheets[hoja],{defval:null});
   if(!filas.length) throw new Error(`«${nombre}»: la hoja está vacía.`);
   const k0=Object.keys(filas[0]);
-  const low=k=>k.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+  const low=k=>k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
   const kSede=k0.find(k=>low(k)==="sede")||k0[0];
-  const kCed =k0.find(k=>low(k).includes("cedula"));
-  const kEsc =k0.find(k=>low(k).includes("escaneo"));
+  const kCed =k0.find(k=>low(k).includes("cedula")&&!k.includes("%"));
+  const kEsc =k0.find(k=>low(k).includes("escaneo")&&!k.includes("%"));
   const kMan =k0.find(k=>low(k).includes("manual")&&!k.includes("%"));
   const kRec =k0.find(k=>low(k).includes("rechazo"));
   if(!kEsc) throw new Error(`«${nombre}»: falta la columna «Escaneos (IA)».`);
   if(!kCed&&!kMan) throw new Error(`«${nombre}»: falta la columna «Cédulas».`);
   const num=v=>{const n=Number(v);return isFinite(n)&&n>0?n:0;};
-  const acum=new Map(); const sinMapeo=new Set();
+  const acum=new Map(); const sinMapeo=new Set(); const raras=[];
   for(const r of filas){
     const so=norm(r[kSede]); if(!so) continue;
     const e=num(r[kEsc]), m=kMan?num(r[kMan]):0;
-    const c=kCed?num(r[kCed]):e+m;
+    const cr=kCed?num(r[kCed]):e+m;
+    // si el archivo trae menos cédulas que escaneos + manuales, se usa la suma (el % nunca pasa de 100)
+    const c=Math.max(cr,e+m);
+    if(c>cr&&raras.length<5) raras.push(String(r[kSede]).trim());
     if(!c&&!e) continue;
     const sede=buscarSede(so,mapa,suave); if(!sede) sinMapeo.add(so);
     const s=sede||so, a=acum.get(s)||{f,s,c:0,e:0,m:0,r:0};
@@ -558,22 +585,23 @@ function leerEscaneo(buf, nombre, mapa, suave){
   }
   const out=[...acum.values()];
   if(!out.length) throw new Error(`«${nombre}»: no encontré sedes con cédulas registradas.`);
-  return {fecha:f,filas:out,sinMapeo:[...sinMapeo]};
+  return {fecha:f,filas:out,sinMapeo:[...sinMapeo],raras};
 }
 
 /** Suma cédulas y escaneos por sede dentro del período elegido (mismos filtros que la tabla). */
-function escaneosPorSede(escaneos,ignorar,{vista,anio,meses,semanas,dias}){
+function escaneosPorSede(escaneos,ignorar,mapa,suave,{vista,anio,meses,semanas,dias}){
   const setMes=new Set(vista==="anual"?[]:(meses||[])), setSem=new Set(semanas||[]), setDia=new Set(dias||[]);
   const out=new Map();
   for(const r of escaneos||[]){
-    if(ignorar&&ignorar.has(r.s)) continue;
+    const s=buscarSede(r.s,mapa,suave)||r.s;   // por si la sede se mapeó después de subir el archivo
+    if(ignorar&&ignorar.has(s)) continue;
     const {y,m,d}=partes(r.f);
     if(y!==anio) continue;
     if(setMes.size&&!setMes.has(m)) continue;
     if(vista==="semanal"&&setSem.size&&!setSem.has(semanaDe(y,m,d))) continue;
     if(vista==="diario" &&setDia.size&&!setDia.has(d)) continue;
-    const a=out.get(r.s)||{c:0,e:0};
-    a.c+=r.c; a.e+=r.e; out.set(r.s,a);
+    const a=out.get(s)||{c:0,e:0};
+    a.c+=Math.max(r.c,r.e+(r.m||0)); a.e+=r.e; out.set(s,a);   // memorias viejas: el % no pasa de 100
   }
   return out;
 }
@@ -662,7 +690,7 @@ function construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,meses,semanas,dia
       objetivo=hay?t:null;
     }
 
-    const obj=objetivo==null?null:Math.round(objetivo*100)/100;
+    const obj=(objetivo==null||objetivo<=0)?null:Math.round(objetivo*100)/100;   // 0 no es una meta
     const p=(obj==null||obj<=0)?null:inscritos/obj;
     const sc=esc&&esc.get(s);
     return {sede:s,cluster:CLUSTER_BY_SEDE.get(s)||"Sin cluster",inscritos,objetivo:obj,
@@ -695,8 +723,19 @@ function totales(filas){
 /** objetivo  = una sola línea (cuando todas las barras comparten meta)
     objetivos = un valor por barra (cuando cada período tiene su propia meta) */
 function Barras({datos,labels,objetivo,objetivos,resalta,haySel,titulo}){
+  // el ancho del SVG sigue al de su caja (1 unidad = 1px), así los textos no se encogen en el celular;
+  // por debajo de 560px la gráfica conserva ese mínimo y se desplaza de lado
+  const caja=useRef(null);
+  const [anchoCaja,setAnchoCaja]=useState(1000);
+  useEffect(()=>{
+    const el=caja.current; if(!el||typeof ResizeObserver!=="function") return;
+    const ro=new ResizeObserver(([e])=>setAnchoCaja(Math.round(e.contentRect.width)||1000));
+    ro.observe(el); return ()=>ro.disconnect();
+  },[]);
   if(!datos.length) return <div className="empty"><p>Sin datos para graficar.</p></div>;
-  const W=1000,H=290,pl=54,pr=16,pt=22,pb=34;
+  // margen izquierdo según el largo de la cifra más alta del eje (1.234.668 no cabe en 54px)
+  const cifraMax=fmt(Math.max(1,...datos,objetivo||0,...(objetivos||[]).filter(o=>o!=null)));
+  const W=Math.max(560,anchoCaja),H=290,pl=Math.max(54,18+7*cifraMax.length),pr=16,pt=22,pb=34;
   const ch=H-pt-pb, bw=(W-pl-pr)/datos.length;
   const on=i=>resalta?resalta(i):true;
   const n=datos.length;
@@ -721,9 +760,9 @@ function Barras({datos,labels,objetivo,objetivos,resalta,haySel,titulo}){
   const denso=n>16;              // en gráficas densas, aligerar etiquetas
   const pasoLbl=denso?(n>26?5:2):1;  // cada cuántos días se rotula el eje
   return (
-    <div className="cw">
+    <div className="cw" ref={caja}>
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}
-        style={{width:"100%",height:"auto",display:"block",maxWidth:"100%"}}
+        style={{width:W,height:H,display:"block"}}
         role="img" aria-label={titulo||"Evolución"}>
         {[0,.25,.5,.75,1].map((t,i)=>(
           <g key={i}>
@@ -872,7 +911,7 @@ function TablaSedes({filas,vista,conEsc}){
             </tr>
           ))}
           <tr className="tot">
-            <td>TOTAL</td><td>{t.nSin>0&&t.nCon>0?`${t.nCon} de ${filas.length} con objetivo`:`${filas.length} sedes`}</td>
+            <td>TOTAL</td><td>{t.nSin>0&&t.nCon>0?`${t.nCon} de ${filas.length} con objetivo`:`${filas.length} ${filas.length===1?"sede":"sedes"}`}</td>
             <td className="r num">{fmt(t.i)}</td>
             <td className="r num">{fmt2(t.o)}</td>
             <td className="r num">{t.fa>0?fmt2(t.fa):"✓"}</td>
@@ -982,6 +1021,7 @@ function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,o
         try{
           const r=leerEscaneo(new Uint8Array(e.target.result),file.name,mapa,suave);
           nuevas.push(...r.filas); r.sinMapeo.forEach(s=>sm.add(s));
+          if(r.raras.length) errores.push(`«${file.name}»: en ${r.raras.join(", ")} las cédulas eran menos que escaneos + manuales; se usó esa suma.`);
         }catch(x){ errores.push(x.message); }
         if(++hechas===lista.length) cerrar();
       };
@@ -992,10 +1032,11 @@ function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,o
       if(nuevas.length){
         const res=onEscaneos(nuevas);
         const c=nuevas.reduce((a,x)=>a+x.c,0), e=nuevas.reduce((a,x)=>a+x.e,0);
-        notify(`Escaneo ${res.dias.length===1?`del ${res.dias[0]}`:`de ${res.dias.length} días`}: ${fmt(e)} de ${fmt(c)} cédulas (${pct(c?e/c:null)})`);
+        notify(`Escaneo ${res.dias.length===1?`del ${res.dias[0]}`:`de ${res.dias.length} días`}: ${fmt(e)} de ${fmt(c)} cédulas (${pct(c?e/c:null)})`
+          +(res.reemplazados?` · reemplazó ${res.reemplazados===1?"el día que ya estaba":`${res.reemplazados} días que ya estaban`}`:""));
       }
       if(errores.length) setErr(errores.join("  "));
-      if(sm.size) setErr(p=>(p?p+"  ":"")+`Sedes de escaneo sin mapear (no entran a la tabla): ${[...sm].join(", ")}. Agrégalas en Configuración si deben contar.`);
+      if(sm.size) setErr(p=>(p?p+"  ":"")+`Sedes de escaneo sin mapear (no entran a la tabla): ${[...sm].join(", ")}. Si deben contar, agrégalas en Ajustes → Sedes; no hace falta volver a subir el archivo.`);
     }
   };
 
@@ -1166,19 +1207,22 @@ function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,o
 }
 
 /* ══════════ pestaña DASHBOARD ══════════ */
-function Dashboard({hechos,presu,mapa,cfgSedes,capturando,escaneos,ignorar}){
+function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar}){
   const hoy=new Date();
-  const aniosDisp=hechos.anios.length?hechos.anios:[hoy.getFullYear()];
+  const corteEsc=(escaneos||[]).reduce((a,r)=>r.f>a?r.f:a,"");
+  const aniosTodos=[...new Set([...hechos.anios,...(escaneos||[]).map(r=>+r.f.slice(0,4))])].sort();
+  const aniosDisp=aniosTodos.length?aniosTodos:[hoy.getFullYear()];
+  const corte=[hechos.corte||"",corteEsc].sort().pop()||null;
   const [vista,setVista]=useState("mensual");
   const [anio,setAnio]=useState(aniosDisp[aniosDisp.length-1]);
-  const mesCorte=hechos.corte?+hechos.corte.slice(5,7):hoy.getMonth()+1;
+  const mesCorte=corte?+corte.slice(5,7):hoy.getMonth()+1;
   const [meses,setMeses]=useState([mesCorte]);   // arreglos: vacío = todos
   const [semanas,setSemanas]=useState([]);
   const [dias,setDias]=useState([]);
   const [cluster,setCluster]=useState("TODOS");
   const [sedeSet,setSedeSet]=useState([]);       // vacío = todas
 
-  useEffect(()=>{ if(!aniosDisp.includes(anio)) setAnio(aniosDisp[aniosDisp.length-1]); },[hechos.anios.join()]);
+  useEffect(()=>{ if(!aniosDisp.includes(anio)) setAnio(aniosDisp[aniosDisp.length-1]); },[aniosDisp.join()]);
   // un solo mes de referencia para las listas de semanas/días (el primero elegido, o el del corte)
   const mesRef = meses.length?Math.min(...meses):mesCorte;
   const nSem=nSemanas(anio,mesRef);
@@ -1189,9 +1233,9 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando,escaneos,ignorar}){
   const conEsc=(escaneos||[]).length>0;
   const filasTodas=useMemo(()=>{
     const per={vista,anio,meses,semanas,dias};
-    const esc=conEsc?escaneosPorSede(escaneos,ignorar,per):null;
+    const esc=conEsc?escaneosPorSede(escaneos,ignorar,mapa,suave,per):null;
     return construirTabla(hechos,presu,mapa,cfgSedes,per,esc);
-  },[hechos,presu,mapa,cfgSedes,escaneos,ignorar,vista,anio,meses.join(),semanas.join(),dias.join()]);
+  },[hechos,presu,mapa,suave,cfgSedes,escaneos,ignorar,vista,anio,meses.join(),semanas.join(),dias.join()]);
   const filas=useMemo(()=>{
     let f=filasTodas;
     if(cluster!=="TODOS") f=f.filter(x=>x.cluster===cluster);
@@ -1283,7 +1327,7 @@ function Dashboard({hechos,presu,mapa,cfgSedes,capturando,escaneos,ignorar}){
       ...(conEsc?{"Cédulas":f.ced,"Escaneos (IA)":f.esc,
         "% Escaneo (IA)":f.pctEsc==null?null:Math.round(f.pctEsc*1000)/10}:{})});
     const datos=[...filas].sort((a,b)=>(b.pct??-1)-(a.pct??-1)).map(fila);
-    datos.push({Sede:"TOTAL",Cluster:`${filas.length} sedes`,Inscritos:t.i,
+    datos.push({Sede:"TOTAL",Cluster:`${filas.length} ${filas.length===1?"sede":"sedes"}`,Inscritos:t.i,
       Objetivo:Math.round(t.o*100)/100,Faltan:Math.round(t.fa*100)/100,
       "% Cumplimiento":tp==null?null:Math.round(tp*1000)/10,Estado:estadoDe(tp),
       ...(conEsc?{"Cédulas":t.ced,"Escaneos (IA)":t.esc,
@@ -1650,9 +1694,10 @@ const addAnexos = useCallback(nuevas => {
   /** Igual que los reportes diarios: un día que vuelve a llegar reemplaza al anterior. */
   const addEscaneos=useCallback(nuevas=>{
     const dias=new Set(nuevas.map(a=>a.f));
+    const reemplazados=new Set(escaneos.filter(a=>dias.has(a.f)).map(a=>a.f)).size;
     setEscaneos(prev=>[...prev.filter(a=>!dias.has(a.f)),...nuevas]);
-    return {dias:[...dias].sort()};
-  },[]);
+    return {dias:[...dias].sort(),reemplazados};
+  },[escaneos]);
 
   /** Borra lo cargado: la base, un día de reportes/escaneos, o todos los días de un tipo. */
   const borrar=useCallback((tipo,fecha)=>{
@@ -1683,7 +1728,7 @@ const addAnexos = useCallback(nuevas => {
   const cargarMemoria=useCallback(j=>{
     if(j.habeas) setHabeas(j.habeas);
     if(Array.isArray(j.anexos)) setAnexos(j.anexos);
-    if(Array.isArray(j.escaneos)) setEscaneos(j.escaneos);
+    setEscaneos(Array.isArray(j.escaneos)?j.escaneos:[]);   // una memoria vieja no trae escaneos: no mezclar
     if(j.presupuesto) setPresu(j.presupuesto);
     if(Array.isArray(j.mapeo)&&j.mapeo.length) setMapeo(migrarMapeo(j.mapeo));
     if(typeof j.usarAnexos==="boolean") setUsarAnexos(j.usarAnexos);
@@ -1830,14 +1875,14 @@ const addAnexos = useCallback(nuevas => {
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                 <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
               </svg>
-              Guardar
+              <span className="hb-t">Guardar</span>
             </button>
           )}
           <button className={"hbtn"+(modal==="datos"?" on":"")} onClick={()=>setModal("datos")}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            Datos
+            <span className="hb-t">Datos</span>
             {!hayDatos && <span className="dotw"/>}
           </button>
           <button className={"hbtn ico"+(modal==="ajustes"?" on":"")} onClick={()=>setModal("ajustes")}
@@ -1852,7 +1897,7 @@ const addAnexos = useCallback(nuevas => {
 
       <div className={"main"+(capturando?" capturando":"")} ref={capRef}>
         {hayDatos
-          ? <Dashboard hechos={hechos} presu={presu} mapa={mapa} cfgSedes={cfgSedes} capturando={capturando}
+          ? <Dashboard hechos={hechos} presu={presu} mapa={mapa} suave={suave} cfgSedes={cfgSedes} capturando={capturando}
               escaneos={escaneos} ignorar={ignorar}/>
           : <div className="card"><div className="empty">
               <img src={MASCOTA} alt=""/>
