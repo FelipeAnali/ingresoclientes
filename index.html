@@ -888,7 +888,7 @@ function Barras({datos,labels,objetivo,objetivos,resalta,haySel,titulo}){
   const [anchoCaja,setAnchoCaja]=useState(1000);
   useEffect(()=>{
     const el=caja.current; if(!el||typeof ResizeObserver!=="function") return;
-    const ro=new ResizeObserver(([e])=>setAnchoCaja(Math.round(e.contentRect.width)||1000));
+    const ro=new ResizeObserver(([e])=>setAnchoCaja(Math.floor(e.contentRect.width)||1000));
     ro.observe(el); return ()=>ro.disconnect();
   },[]);
   if(!datos.length) return <div className="empty"><p>Sin datos para graficar.</p></div>;
