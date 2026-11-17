@@ -134,7 +134,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 .md-t button.on{background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.12),0 1px 1px rgba(0,0,0,.04)}
 .md-b{padding:18px 20px 24px;max-height:calc(100vh - 170px);overflow-y:auto;overscroll-behavior:contain}
 
-.main{flex:1;width:100%;max-width:1360px;margin:0 auto;padding:22px 24px 48px}
+.main{flex:1;width:100%;max-width:1520px;margin:0 auto;padding:22px 24px 48px}
 
 /* tarjetas */
 .card{background:var(--card);border-radius:18px;padding:18px 20px;margin-bottom:16px;box-shadow:var(--sombra)}
@@ -216,24 +216,24 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 /* tabla tipo lista iOS: separadores finos */
 .tw{overflow-x:auto;margin:0 -20px;padding:0 20px}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
-th{text-align:left;font-size:11.5px;font-weight:500;text-transform:uppercase;letter-spacing:.03em;color:var(--muted-2);
-  padding:8px 10px;box-shadow:inset 0 -.5px 0 var(--line-strong);white-space:nowrap;cursor:pointer;user-select:none}
+th{text-align:left;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.03em;color:var(--muted-2);line-height:1.25;
+  padding:8px 8px;border-bottom:1px solid var(--line-strong);vertical-align:bottom;cursor:pointer;user-select:none}
+th small{display:block;font-size:10.5px;text-transform:none;letter-spacing:0;font-weight:400}
 th.r,td.r{text-align:right}
 th:hover{color:var(--forest)}
-td{padding:9px 10px;box-shadow:inset 0 -.5px 0 var(--line);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 tbody tr:hover{background:var(--fill-2)}
-tr.tot td{font-weight:700;background:var(--fill-2);box-shadow:inset 0 1px 0 var(--line-strong)}
-tr.tot td:first-child{border-radius:12px 0 0 12px} tr.tot td:last-child{border-radius:0 12px 12px 0}
+tr.tot td{font-weight:700;background:#f5f5f8;border-top:1px solid var(--line-strong);border-bottom:none}
 .tag{display:inline-block;font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;letter-spacing:.01em}
 .tag.ok{background:#e3f6d1;color:#1C5A2A}
 .tag.no{background:var(--red-soft);color:var(--red)}
 .tag.wr{background:var(--amber-soft);color:var(--amber)}
 .tag.na{background:var(--fill);color:var(--muted)}
 .pb{display:flex;align-items:center;gap:8px;justify-content:flex-end}
-.trk{position:relative;width:96px;height:6px;border-radius:100px;background:var(--fill);overflow:hidden;flex-shrink:0}
+.trk{position:relative;width:64px;height:6px;border-radius:100px;background:var(--fill);overflow:hidden;flex-shrink:0}
 .trk i{position:absolute;left:0;top:0;bottom:0;border-radius:100px;background:var(--lime)}
 .trk i.wr{background:#ff9f0a}.trk i.no{background:#ff3b30}.trk i.esc{background:var(--forest)}
-th.esc-col,td.esc-col{border-left:.5px solid var(--line-strong)}
+th.esc-col,td.esc-col{border-left:1px solid var(--line-strong)}
 
 /* gráfica */
 .cw{margin:4px 0 0;overflow-x:auto;overscroll-behavior-x:contain}
@@ -273,12 +273,23 @@ th.esc-col,td.esc-col{border-left:.5px solid var(--line-strong)}
   color:#fff;padding:11px 20px;border-radius:100px;font-size:13.5px;font-weight:500;z-index:99;
   box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:90vw;text-align:center;animation:toastIn 260ms var(--ease-out)}
 @keyframes toastIn{from{opacity:0;transform:translate(-50%,10px) scale(.97)}to{opacity:1;transform:translate(-50%,0)}}
-.nota-pie{font-size:12px;color:var(--muted);margin-top:12px;padding-top:10px;box-shadow:inset 0 .5px 0 var(--line);line-height:1.6}
+.nota-pie{font-size:12px;color:var(--muted);margin-top:12px;padding-top:10px;border-top:1px solid var(--line);line-height:1.6}
 .empty{padding:44px 20px;text-align:center;color:var(--muted)}
 .empty img{width:132px;height:auto;margin:0 auto 16px;display:block}
 .empty h4{font-family:var(--font-d);font-size:19px;font-weight:600;margin-bottom:6px;color:var(--ink)}
 .ft{padding:16px 24px calc(16px + env(safe-area-inset-bottom,0px));text-align:center;font-size:12px;color:var(--muted-2)}
 
+/* pantallas medianas o con zoom: la tabla se compacta para verse completa */
+@media(max-width:1300px){
+  .tw .trk{display:none}
+  td.sd,td.cl{white-space:normal;min-width:96px;line-height:1.3}
+  td.cl{font-size:12.5px}
+}
+/* la imagen de la tabla siempre sale completa, con barras y sin partir nombres */
+.cap-tabla .tw .trk{display:block}
+.cap-tabla td.sd,.cap-tabla td.cl{white-space:nowrap}
+/* en la imagen el ancho lo marca la tabla: los textos de alrededor se acomodan a ella */
+.cap-tabla .cap-t,.cap-tabla .card-h,.cap-tabla .hint,.cap-tabla .nota-pie{contain:inline-size}
 @media(max-width:640px){
   .hd,.main{padding-left:14px;padding-right:14px}
   .hd{gap:10px;padding-top:calc(10px + env(safe-area-inset-top,0px))}
@@ -1016,13 +1027,13 @@ function TablaSedes({filas,vista,conEsc,detalle,escDesde}){
           <th>Estado</th>
           {conEsc && detalle && th("esc","Escaneos (IA)","r esc-col")}
           {conEsc && detalle && th("man","Manuales","r")}
-          {conEsc && th("pctEsc",escDesde?`% Escaneo (IA) · desde ${escDesde}`:"% Escaneo (IA)","r"+(detalle?"":" esc-col"))}
+          {conEsc && th("pctEsc",escDesde?<>% Escaneo (IA)<small>desde {escDesde}</small></>:"% Escaneo (IA)","r"+(detalle?"":" esc-col"))}
         </tr></thead>
         <tbody>
           {orden.map(f=>(
             <tr key={f.sede}>
-              <td style={{fontWeight:600}}>{f.sede}</td>
-              <td style={{color:"var(--muted)"}}>{f.cluster}</td>
+              <td className="sd" style={{fontWeight:600}}>{f.sede}</td>
+              <td className="cl" style={{color:"var(--muted)"}}>{f.cluster}</td>
               <td className="r num">{fmt(f.inscritos)}</td>
               <td className="r num">{fmt2(f.objetivo)}</td>
               <td className="r num" style={{color:f.faltante>0?"var(--red)":"var(--muted-2)",fontWeight:f.faltante>0?600:400}}>
