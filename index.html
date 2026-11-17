@@ -75,7 +75,24 @@ input,select{font-family:inherit;font-size:14px}
 .cap-h .p{font-size:12px;color:var(--muted);margin-top:2px}
 .cap-h .f{margin-left:auto;text-align:right;font-size:11.5px;color:var(--muted)}
 .capturando .cap-h{display:flex}
-.capturando .ctrls{display:none}
+.capturando .ctrls,.capturando .no-cap,.cap-tabla .no-cap{display:none!important}
+/* banda de la imagen de la tabla */
+.cap-t{display:none;align-items:center;gap:14px;padding:0 0 14px;margin-bottom:12px;border-bottom:3px solid var(--lime)}
+.cap-t img{height:30px;width:auto}
+.cap-t h2{font-size:15px;font-weight:700}
+.cap-t .p{font-size:12px;color:var(--muted);margin-top:1px}
+.cap-t .f{margin-left:auto;text-align:right;font-size:11.5px;color:var(--muted)}
+.cap-tabla .cap-t{display:flex}
+.cap-tabla{width:max-content;min-width:100%}
+.cap-tabla .tw{overflow:visible}
+.card-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:3px}
+.card-h h3{font-size:15px;font-weight:700}
+.card-h .row{margin-left:auto}
+.sw-l{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--forest);cursor:pointer;user-select:none}
+.sw-l input{width:16px;height:16px;accent-color:var(--forest)}
+.txc{width:100%;min-height:340px;border:1px solid var(--line-strong);border-radius:10px;padding:12px 14px;
+  font:13px/1.55 'Inter',system-ui,sans-serif;color:var(--ink);background:#fff;resize:vertical}
+.txc:focus{outline:2px solid var(--lime);border-color:var(--lime)}
 
 /* modal */
 .ov{position:fixed;inset:0;background:rgba(5,32,11,.45);backdrop-filter:blur(2px);z-index:60;
@@ -190,6 +207,7 @@ tr.tot td{font-weight:700;background:#eef2ec;border-top:2px solid var(--forest);
 .trk{position:relative;width:96px;height:7px;border-radius:100px;background:#e6ece3;overflow:hidden;flex-shrink:0}
 .trk i{position:absolute;left:0;top:0;bottom:0;border-radius:100px;background:var(--lime)}
 .trk i.wr{background:#d9a441}.trk i.no{background:var(--red)}.trk i.esc{background:var(--forest)}
+th.esc-col,td.esc-col{border-left:1px solid var(--line)}
 
 /* chart */
 .cw{margin:2px 0 0;overflow-x:auto;overscroll-behavior-x:contain}
@@ -214,6 +232,10 @@ tr.tot td{font-weight:700;background:#eef2ec;border-top:2px solid var(--forest);
 .lst-h .btn{margin-left:auto}
 .mph{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-2)}
 
+.copia{margin-top:14px;padding:13px 14px;border:1px solid var(--line);border-radius:11px;background:#fbfcfa}
+.copia .t{font-weight:700;font-size:13.5px;margin-bottom:3px}
+.copia .d{font-size:12.5px;color:var(--muted);line-height:1.55}
+.copia code{font-size:11.5px;background:#eef2ec;padding:1px 5px;border-radius:5px}
 .note{border-radius:10px;padding:10px 13px;font-size:12.5px;margin-bottom:13px;border:1px solid}
 .note.w{background:var(--amber-soft);border-color:#edd8ac;color:#7a4d0c}
 .note.e{background:var(--red-soft);border-color:#eec3be;color:var(--red)}
@@ -601,7 +623,7 @@ function escaneosPorSede(escaneos,ignorar,mapa,suave,{vista,anio,meses,semanas,d
     if(vista==="semanal"&&setSem.size&&!setSem.has(semanaDe(y,m,d))) continue;
     if(vista==="diario" &&setDia.size&&!setDia.has(d)) continue;
     const a=out.get(s)||{c:0,e:0};
-    a.c+=Math.max(r.c,r.e+(r.m||0)); a.e+=r.e; out.set(s,a);   // memorias viejas: el % no pasa de 100
+    a.c+=Math.max(r.c,r.e+(r.m||0)); a.e+=r.e; out.set(s,a);   // memorias viejas: el % no pasa de 100   // memorias viejas: el % no pasa de 100
   }
   return out;
 }
@@ -696,7 +718,7 @@ function construirTabla(hechos,presu,mapa,cfgSedes,{vista,anio,meses,semanas,dia
     return {sede:s,cluster:CLUSTER_BY_SEDE.get(s)||"Sin cluster",inscritos,objetivo:obj,
       faltante:obj==null?null:Math.round(Math.max(0,obj-inscritos)*100)/100,
       pct:p,estado:estadoDe(p),
-      ced:sc?sc.c:0, esc:sc?sc.e:0, pctEsc:sc&&sc.c>0?sc.e/sc.c:null};
+      ced:sc?sc.c:0, esc:sc?sc.e:0, man:sc?sc.c-sc.e:0, pctEsc:sc&&sc.c>0?sc.e/sc.c:null};
   }).filter(r=>r.inscritos>0||r.objetivo!=null||r.ced>0);
   return filas;
 }
@@ -716,7 +738,107 @@ function totales(filas){
   const ced=filas.reduce((a,f)=>a+(f.ced||0),0);
   const esc=filas.reduce((a,f)=>a+(f.esc||0),0);
   return {i,iComp,o,fa,nCon:conObj.length,nSin:filas.length-conObj.length,
-          p:o>0?iComp/o:null, ced, esc, pEsc:ced>0?esc/ced:null};
+          p:o>0?iComp/o:null, ced, esc, man:ced-esc, pEsc:ced>0?esc/ced:null};
+}
+
+/* ══════════ captura, descargas y portapapeles ══════════ */
+/** Foto de un nodo del DOM con html2canvas (toma el ancho completo, aunque tenga scroll). */
+async function lienzoDe(nodo){
+  const ancho=nodo.scrollWidth, alto=nodo.scrollHeight;
+  // bajar la resolución si es muy grande, para no agotar la memoria
+  const escala=Math.max(1,Math.min(2,Math.floor(9000000/Math.max(1,ancho*alto))||1));
+  return html2canvas(nodo,{
+    scale:escala, backgroundColor:"#f5f7f3", useCORS:true, logging:false,
+    width:ancho, height:alto, windowWidth:Math.max(ancho,document.documentElement.clientWidth),
+    scrollX:0, scrollY:0, imageTimeout:8000, removeContainer:true
+  });
+}
+function bajarBlob(blob,nombre){
+  const url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download=nombre; a.rel="noopener"; document.body.appendChild(a); a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
+}
+const esperarPintado=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,220))));
+const hoyISO=(d=new Date())=>`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+
+/** Copia al portapapeles. Con html, Outlook/Gmail pegan la tabla con formato; si no se puede, va solo el texto. */
+async function copiarPortapapeles(texto,html){
+  try{
+    if(html&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html":new Blob([html],{type:"text/html"}),
+        "text/plain":new Blob([texto],{type:"text/plain"})})]);
+      return true;
+    }
+    if(navigator.clipboard&&navigator.clipboard.writeText){ await navigator.clipboard.writeText(texto); return true; }
+  }catch(e){ /* sigue con el método antiguo */ }
+  try{
+    const el=document.createElement("div");
+    el.contentEditable="true"; el.style.cssText="position:fixed;left:-9999px;top:0;white-space:pre-wrap";
+    if(html) el.innerHTML=html; else el.textContent=texto;
+    document.body.appendChild(el);
+    const r=document.createRange(); r.selectNodeContents(el);
+    const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    const ok=document.execCommand("copy");
+    sel.removeAllRanges(); document.body.removeChild(el);
+    return ok;
+  }catch(e){ return false; }
+}
+
+/** Preferencias pequeñas de este equipo (no son datos: si falla, se usa el valor por defecto). */
+function leerPref(k,def){ try{ const v=window.localStorage.getItem("cn_pref_"+k); return v==null?def:JSON.parse(v); }catch(e){ return def; } }
+function guardarPref(k,v){ try{ window.localStorage.setItem("cn_pref_"+k,JSON.stringify(v)); }catch(e){} }
+
+/* ══════════ texto para el correo ══════════ */
+const escHTML=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+/** Arma el texto del correo a partir de lo que se está viendo en el tablero. */
+function textoCorreo({filas,k,per,alcance,corte,conEsc}){
+  const h=new Date().getHours();
+  const orden=[...filas].sort((a,b)=>(b.pct??-1)-(a.pct??-1));
+  const grupo=e=>orden.filter(f=>f.estado===e);
+  const lista=(fs,conFalta)=>fs.map(f=>`   - ${f.sede}: ${pct(f.pct)}`+(conFalta&&f.faltante>0?` (faltan ${fmt2(f.faltante)})`:"")).join("\n");
+  const L=[];
+  L.push(h<12?"Buenos días,":h<19?"Buenas tardes,":"Buenas noches,");
+  L.push("");
+  L.push(`Comparto el seguimiento de clientes nuevos de ${per}${alcance==="Todas las sedes"?"":` (${alcance})`}, con datos al ${corte||"—"}.`);
+  L.push("");
+  L.push("Resumen:");
+  L.push(`- Inscritos: ${fmt(k.i)}`+(k.o>0?` de un objetivo de ${fmt2(k.o)} (${pct(k.p)}, ${estadoDe(k.p)}).`:" (sin objetivo definido)."));
+  if(k.o>0) L.push(k.fa>0?`- Faltan ${fmt2(k.fa)} para llegar al objetivo.`:"- El objetivo del período se alcanzó.");
+  if(k.conObj>0) L.push(`- Sedes que cumplen: ${k.cum} de ${k.conObj}.`);
+  if(conEsc&&k.ced>0) L.push(`- Escaneo (IA): ${pct(k.pEsc)} de las cédulas (${fmt(k.esc)} con escaneo y ${fmt(k.man)} manuales).`);
+  const cumplen=grupo("CUMPLE"), riesgo=grupo("EN RIESGO"), no=grupo("NO CUMPLE");
+  if(cumplen.length){ L.push(""); L.push(`Cumplen (${cumplen.length}):`); L.push(lista(cumplen,false)); }
+  if(riesgo.length){ L.push(""); L.push(`En riesgo, entre 85% y 99% (${riesgo.length}):`); L.push(lista(riesgo,true)); }
+  if(no.length){ L.push(""); L.push(`No cumplen, por debajo de 85% (${no.length}):`); L.push(lista(no,true)); }
+  if(conEsc){
+    const bajos=filas.filter(f=>f.pctEsc!=null).sort((a,b)=>a.pctEsc-b.pctEsc).slice(0,3);
+    if(bajos.length){ L.push(""); L.push("Sedes con menor uso del escaneo (IA):");
+      L.push(bajos.map(f=>`   - ${f.sede}: ${pct(f.pctEsc)} (${fmt(f.man)} manuales de ${fmt(f.ced)})`).join("\n")); }
+  }
+  L.push(""); L.push("Quedo atento a cualquier comentario."); L.push(""); L.push("Saludos.");
+  return L.join("\n");
+}
+
+/** La tabla de cumplimiento en HTML con estilos en línea, para pegarla en el correo. */
+function tablaCorreoHTML(filas,t,conEsc,detalle){
+  const orden=[...filas].sort((a,b)=>(b.pct??-1)-(a.pct??-1));
+  const col={"CUMPLE":["#f0fadb","#1C5A2A"],"EN RIESGO":["#fdf3e0","#a86a12"],"NO CUMPLE":["#fdecea","#b8342a"],"SIN OBJETIVO":["#eff1ee","#63735f"]};
+  const th=(x,r)=>`<th style="padding:6px 9px;border-bottom:2px solid #1C5A2A;background:#05200b;color:#ffffff;font-size:11px;text-align:${r?"right":"left"};white-space:nowrap">${x}</th>`;
+  const td=(x,r,ex="")=>`<td style="padding:5px 9px;border-bottom:1px solid #dfe6db;font-size:12px;text-align:${r?"right":"left"};white-space:nowrap;${ex}">${x}</td>`;
+  const est=e=>`<span style="background:${col[e][0]};color:${col[e][1]};font-weight:700;font-size:10.5px;padding:2px 8px;border-radius:9px">${e}</span>`;
+  const esc=f=>!conEsc?"":(detalle?td(f.ced>0?fmt(f.esc):"—",1)+td(f.ced>0?fmt(f.man):"—",1):"")+td(pct(f.pctEsc),1,"font-weight:700");
+  const fila=f=>"<tr>"+td(escHTML(f.sede),0,"font-weight:600")+td(escHTML(f.cluster),0,"color:#63735f")+td(fmt(f.inscritos),1)
+    +td(fmt2(f.objetivo),1)+td(f.faltante==null?"—":f.faltante===0?"✓":fmt2(f.faltante),1,f.faltante>0?"color:#b8342a;font-weight:600":"")
+    +td(pct(f.pct),1,"font-weight:700")+td(est(f.estado),0)+esc(f)+"</tr>";
+  const tot={sede:"TOTAL",cluster:`${filas.length} ${filas.length===1?"sede":"sedes"}`,inscritos:t.i,objetivo:t.o,
+    faltante:t.fa,pct:t.p,estado:estadoDe(t.p),ced:t.ced,esc:t.esc,man:t.man,pctEsc:t.pEsc};
+  return `<table style="border-collapse:collapse;font-family:Arial,sans-serif;color:#05200b"><thead><tr>`
+    +th("Sede")+th("Cluster")+th("Inscritos",1)+th("Objetivo",1)+th("Faltan",1)+th("% Cumplimiento",1)+th("Estado")
+    +(conEsc?(detalle?th("Escaneos (IA)",1)+th("Manuales",1):"")+th("% Escaneo (IA)",1):"")
+    +`</tr></thead><tbody>${orden.map(fila).join("")}`
+    +fila(tot).replace("<tr>",'<tr style="background:#eef2ec;font-weight:700">')+`</tbody></table>`;
 }
 
 /* ══════════ gráfica de barras ══════════ */
@@ -858,7 +980,7 @@ function MultiSelect({label,opciones,sel,onChange,textoTodas,render}){
 }
 
 /* ══════════ tabla de sedes ══════════ */
-function TablaSedes({filas,vista,conEsc}){
+function TablaSedes({filas,vista,conEsc,detalle}){
   const [sort,setSort]=useState({c:"pct",d:-1});
   const orden=useMemo(()=>{
     const a=[...filas];
@@ -888,7 +1010,9 @@ function TablaSedes({filas,vista,conEsc}){
           {th("faltante","Faltan","r")}
           {th("pct","% Cumplimiento","r")}
           <th>Estado</th>
-          {conEsc && th("pctEsc","% Escaneo (IA)","r")}
+          {conEsc && detalle && th("esc","Escaneos (IA)","r esc-col")}
+          {conEsc && detalle && th("man","Manuales","r")}
+          {conEsc && th("pctEsc","% Escaneo (IA)","r"+(detalle?"":" esc-col"))}
         </tr></thead>
         <tbody>
           {orden.map(f=>(
@@ -907,7 +1031,9 @@ function TablaSedes({filas,vista,conEsc}){
                 </div>
               </td>
               <td><span className={"tag "+tagCls(f.estado)}>{f.estado}</span></td>
-              {conEsc && <td className="r"><EscCelda e={f.esc} c={f.ced} p={f.pctEsc}/></td>}
+              {conEsc && detalle && <td className="r num esc-col">{f.ced>0?fmt(f.esc):"—"}</td>}
+              {conEsc && detalle && <td className="r num">{f.ced>0?fmt(f.man):"—"}</td>}
+              {conEsc && <td className={"r"+(detalle?"":" esc-col")}><EscCelda e={f.esc} c={f.ced} p={f.pctEsc} sub={!detalle}/></td>}
             </tr>
           ))}
           <tr className="tot">
@@ -917,7 +1043,9 @@ function TablaSedes({filas,vista,conEsc}){
             <td className="r num">{t.fa>0?fmt2(t.fa):"✓"}</td>
             <td className="r num" title={t.nSin>0?`Calculado sobre ${fmt(t.iComp)} inscritos de las ${t.nCon} sedes con objetivo`:""}>{pct(tp)}</td>
             <td><span className={"tag "+tagCls(estadoDe(tp))}>{estadoDe(tp)}</span></td>
-            {conEsc && <td className="r"><EscCelda e={t.esc} c={t.ced} p={t.pEsc}/></td>}
+            {conEsc && detalle && <td className="r num esc-col">{t.ced>0?fmt(t.esc):"—"}</td>}
+            {conEsc && detalle && <td className="r num">{t.ced>0?fmt(t.man):"—"}</td>}
+            {conEsc && <td className={"r"+(detalle?"":" esc-col")}><EscCelda e={t.esc} c={t.ced} p={t.pEsc} sub={!detalle}/></td>}
           </tr>
         </tbody>
       </table>
@@ -942,21 +1070,21 @@ function TablaSedes({filas,vista,conEsc}){
 }
 
 /** Celda de % escaneo: el porcentaje y, debajo, de cuántas cédulas sale. */
-function EscCelda({e,c,p}){
+function EscCelda({e,c,p,sub=true}){
   if(p==null) return <span style={{color:"var(--muted-2)"}}>—</span>;
   return (
     <div className="pb" title={`${fmt(e)} escaneadas de ${fmt(c)} cédulas`}>
       <span className="trk"><i className="esc" style={{width:Math.min(100,p*100)+"%"}}/></span>
       <span style={{minWidth:50,textAlign:"right",lineHeight:1.15}}>
         <b className="num">{pct(p)}</b>
-        <small className="num" style={{display:"block",fontSize:10.5,color:"var(--muted-2)"}}>{fmt(e)}/{fmt(c)}</small>
+        {sub && <small className="num" style={{display:"block",fontSize:10.5,color:"var(--muted-2)"}}>{fmt(e)}/{fmt(c)}</small>}
       </span>
     </div>
   );
 }
 
 /* ══════════ pestaña DATOS ══════════ */
-function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,onBorrar,onMemoria,memoria,notify,hechos,setTab,usarAnexos,setUsarAnexos,guardaLocal,onLimpiar}){
+function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,onBorrar,onMemoria,copia,memoria,notify,hechos,setTab,usarAnexos,setUsarAnexos,guardaLocal,onLimpiar}){
   const [drag,setDrag]=useState(null);
   const [err,setErr]=useState(null);
   const rH=useRef(),rA=useRef(),rM=useRef(),rE=useRef();
@@ -1102,6 +1230,30 @@ function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,o
             ? "Lo que cargues queda guardado en este equipo, así que si refrescas la página no pierdes nada. Aun así guarda la memoria para llevártela a otro computador o respaldarla."
             : "Este navegador no permite guardar en el equipo: si refrescas la página se pierde lo cargado. Guarda la memoria antes de cerrar."}
         </div>
+
+        <div className="copia">
+          <div className="t">Copia de seguridad automática</div>
+          <div className="d">
+            Cada día a partir de las 4:00 p. m., con la app abierta, se guarda sola una copia de la memoria
+            (<code>copia_clientes_nuevos_AAAA-MM-DD.json</code>). Si un día no se abrió, la copia se hace al abrirla.
+            Para recuperar algo, usa «Cargar memoria» con la copia del día que necesites.
+          </div>
+          <div className="d" style={{marginTop:6}}>
+            <b>Dónde:</b>{" "}
+            {copia.carpeta
+              ? <>carpeta «{copia.carpeta}» (se guardan los últimos {DIAS_COPIA} días)
+                  {copia.permiso&&copia.permiso!=="granted" && <span style={{color:"var(--amber)",fontWeight:600}}> · en pausa: toca «Guardar copia ahora» y acepta el permiso</span>}</>
+              : copia.soporta
+                ? "la carpeta Descargas. Mejor elige una carpeta fija para que no se mezclen con otros archivos."
+                : "la carpeta Descargas (este navegador no deja elegir carpeta; en Chrome o Edge sí)."}
+            <br/><b>Última copia:</b> {copia.ultima?new Date(copia.ultima).toLocaleString("es-CO",{dateStyle:"medium",timeStyle:"short"}):"todavía ninguna"}
+          </div>
+          <div className="row" style={{marginTop:10}}>
+            {copia.soporta && <button className="btn gh sm" onClick={copia.elegir}>{copia.carpeta?"Cambiar carpeta":"Elegir carpeta para las copias"}</button>}
+            <button className="btn gh sm" onClick={copia.ahora}>Guardar copia ahora</button>
+            {copia.carpeta && <button className="btn gh dg sm" onClick={copia.quitar}>Dejar de usar la carpeta</button>}
+          </div>
+        </div>
       </div>
 
       <div className="card">
@@ -1207,7 +1359,7 @@ function Datos({habeas,anexos,escaneos,mapa,suave,onHabeas,onAnexos,onEscaneos,o
 }
 
 /* ══════════ pestaña DASHBOARD ══════════ */
-function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar}){
+function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar,notify}){
   const hoy=new Date();
   const corteEsc=(escaneos||[]).reduce((a,r)=>r.f>a?r.f:a,"");
   const aniosTodos=[...new Set([...hechos.anios,...(escaneos||[]).map(r=>+r.f.slice(0,4))])].sort();
@@ -1324,23 +1476,57 @@ function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar
       Faltan:f.faltante==null?null:Math.round(f.faltante*100)/100,
       "% Cumplimiento":f.pct==null?null:Math.round(f.pct*1000)/10,
       Estado:f.estado,
-      ...(conEsc?{"Cédulas":f.ced,"Escaneos (IA)":f.esc,
+      ...(conEsc?{"Cédulas":f.ced,"Escaneos (IA)":f.esc,"Manuales":f.man,
         "% Escaneo (IA)":f.pctEsc==null?null:Math.round(f.pctEsc*1000)/10}:{})});
     const datos=[...filas].sort((a,b)=>(b.pct??-1)-(a.pct??-1)).map(fila);
     datos.push({Sede:"TOTAL",Cluster:`${filas.length} ${filas.length===1?"sede":"sedes"}`,Inscritos:t.i,
       Objetivo:Math.round(t.o*100)/100,Faltan:Math.round(t.fa*100)/100,
       "% Cumplimiento":tp==null?null:Math.round(tp*1000)/10,Estado:estadoDe(tp),
-      ...(conEsc?{"Cédulas":t.ced,"Escaneos (IA)":t.esc,
+      ...(conEsc?{"Cédulas":t.ced,"Escaneos (IA)":t.esc,"Manuales":t.man,
         "% Escaneo (IA)":t.pEsc==null?null:Math.round(t.pEsc*1000)/10}:{})});
     const et=(vista==="anual"?`anual_${anio}`:`${vista}_${anio}`).toLowerCase()
       + (meses.length?"_"+meses.slice().sort((a,b)=>a-b).map(m=>MES_C[m-1]).join("-").toLowerCase():"");
     const sf=sedeSet.length===1?"_"+sedeSet[0].replace(/\s+/g,"_").toLowerCase():"";
-    bajarXLSX(datos,"Cumplimiento",`clientes_nuevos_${et}${sf}.xlsx`,[30,22,14,12,12,16,14,11,14,15]);
+    bajarXLSX(datos,"Cumplimiento",`clientes_nuevos_${et}${sf}.xlsx`,[30,22,14,12,12,16,14,11,14,11,15]);
   };
 
   const alcance = sedeSet.length===1 ? sedeSet[0]
     : sedeSet.length>1 ? `${sedeSet.length} sedes`
     : cluster!=="TODOS" ? cluster : "Todas las sedes";
+
+  // detalle de escaneo (escaneos y manuales) en la tabla: se recuerda en este equipo
+  const [detalle,setDetalleSt]=useState(()=>leerPref("detalle_esc",true));
+  const setDetalle=v=>{ setDetalleSt(v); guardarPref("detalle_esc",v); };
+
+  // imagen solo de la tabla, para pegar en el correo
+  const tablaRef=useRef(null);
+  const [capTabla,setCapTabla]=useState(false);
+  const bajarTabla=async()=>{
+    if(typeof html2canvas!=="function"){ notify("No cargó la herramienta de captura. Revisa la conexión y recarga la página."); return; }
+    setCapTabla(true); notify("Preparando la imagen de la tabla…");
+    await esperarPintado();
+    try{
+      const lienzo=await lienzoDe(tablaRef.current);
+      lienzo.toBlob(b=>{
+        if(!b){ notify("No pude preparar la imagen."); return; }
+        bajarBlob(b,`tabla_clientes_nuevos_${hoyISO()}.png`);
+        notify("Imagen de la tabla lista para el correo");
+      },"image/png");
+    }catch(e){ notify("No pude generar la imagen: "+(e&&e.message?e.message:"error desconocido")); }
+    finally{ setCapTabla(false); }
+  };
+
+  // texto listo para el correo
+  const [correo,setCorreo]=useState(null);       // null | texto en edición
+  const [conTabla,setConTabla]=useState(()=>leerPref("correo_tabla",true));
+  const abrirCorreo=()=>setCorreo(textoCorreo({filas,k,per,alcance,corte,conEsc}));
+  const copiarCorreo=async()=>{
+    const t=totales(filas);
+    const htmlTxt=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#05200b">${escHTML(correo).replace(/\n/g,"<br>")}</div>`;
+    const html=conTabla?htmlTxt.replace(/(<br>){2}(Quedo atento)/,`<br><br>${tablaCorreoHTML(filas,t,conEsc,detalle)}<br>$2`):htmlTxt;
+    const ok=await copiarPortapapeles(correo,html);
+    notify(ok?(conTabla?"Copiado con la tabla: pégalo en el correo":"Texto copiado: pégalo en el correo"):"No pude copiar. Selecciona el texto y cópialo a mano.");
+  };
 
   return (
     <div>
@@ -1395,6 +1581,7 @@ function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar
         <MultiSelect label="Sede" textoTodas="Todas las sedes"
           opciones={sedesDisp} sel={sedeSet} onChange={setSedeSet}/>
         <button className="btn gh" onClick={exportar} disabled={!filas.length}>Exportar a Excel</button>
+        <button className="btn gh" onClick={abrirCorreo} disabled={!filas.length}>Texto para correo</button>
       </div>
 
       {sinPresu && <div className="note w">Este período no tiene presupuesto cargado, por eso el cumplimiento aparece en blanco. Ve a Presupuesto para definirlo.</div>}
@@ -1430,17 +1617,60 @@ function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar
         </div>
       </div>
 
-      <div className="card">
-        <h3>{sedeSet.length===1?`Cumplimiento · ${sedeSet[0]}`:"Cumplimiento por sede"}</h3>
+      <div className={"card"+(capTabla?" cap-tabla":"")} ref={tablaRef}>
+        <div className="cap-t">
+          <img src={LOGO} alt="Supertiendas Cañaveral"/>
+          <div>
+            <h2>Clientes nuevos · {per}</h2>
+            <div className="p">{alcance} · datos con corte {corte||"—"}</div>
+          </div>
+          <div className="f">Generado el {new Date().toLocaleDateString("es-CO",{day:"numeric",month:"long",year:"numeric"})}</div>
+        </div>
+        <div className="card-h">
+          <h3>{sedeSet.length===1?`Cumplimiento · ${sedeSet[0]}`:"Cumplimiento por sede"}</h3>
+          <div className="row no-cap">
+            {conEsc && (
+              <label className="sw-l" title="Muestra u oculta las columnas de escaneos y manuales">
+                <input type="checkbox" checked={detalle} onChange={e=>setDetalle(e.target.checked)}/>
+                Detalle de escaneo
+              </label>
+            )}
+            <button className="btn gh sm" onClick={bajarTabla} disabled={!filas.length||capTabla}>Descargar tabla (imagen)</button>
+          </div>
+        </div>
         <div className="hint">
           {vista==="anual"   && "Objetivo anual = suma de los 12 objetivos mensuales."}
           {vista==="mensual" && (meses.length>1?`Objetivo = suma de los meses elegidos.`:`Objetivo del mes completo (${diasMes(anio,mesRef)} días).`)}
           {vista==="semanal" && "Objetivo semanal = objetivo diario × días de esa semana dentro del mes."}
           {vista==="diario"  && `Objetivo diario = objetivo mensual ÷ ${diasMes(anio,mesRef)} días.`}
-          {" "}Toca un encabezado para ordenar.
+          <span className="no-cap">{" "}Toca un encabezado para ordenar.</span>
         </div>
-        <TablaSedes filas={filas} vista={vista} conEsc={conEsc}/>
+        <TablaSedes filas={filas} vista={vista} conEsc={conEsc} detalle={detalle}/>
       </div>
+
+      {correo!=null && (
+        <div className="ov" onMouseDown={e=>{if(e.target===e.currentTarget)setCorreo(null);}}>
+          <div className="md" role="dialog" aria-modal="true" aria-label="Texto para correo" style={{maxWidth:760}}>
+            <div className="md-h">
+              <h2>Texto para correo</h2>
+              <button className="x" onClick={()=>setCorreo(null)} aria-label="Cerrar">×</button>
+            </div>
+            <div className="md-b">
+              <div className="note i">Sale de lo que estás viendo en el tablero ({per} · {alcance}). Puedes corregirlo aquí antes de copiarlo.</div>
+              <textarea className="txc" value={correo} onChange={e=>setCorreo(e.target.value)} spellCheck="false"/>
+              <label className="sw-l" style={{marginTop:10}}>
+                <input type="checkbox" checked={conTabla} onChange={e=>{setConTabla(e.target.checked);guardarPref("correo_tabla",e.target.checked);}}/>
+                Incluir la tabla de cumplimiento (Outlook y Gmail la pegan con formato)
+              </label>
+              <div className="row" style={{marginTop:14}}>
+                <button className="btn lime" onClick={copiarCorreo}>Copiar para el correo</button>
+                <button className="btn gh" onClick={abrirCorreo}>Volver a generar</button>
+                <button className="btn gh" onClick={bajarTabla}>Descargar tabla (imagen)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1627,6 +1857,47 @@ function escribirLocal(o){
 }
 function borrarLocal(){ try{ window.localStorage.removeItem(LS); }catch(e){} }
 
+/* ══════════ copia automática diaria ══════════ */
+/* Cada día, desde las 4:00 p. m. (o al abrir la app si se saltó un día), se guarda una copia de la
+   memoria. Si el navegador lo permite (Chrome/Edge) va a una carpeta elegida una vez; si no, se descarga. */
+const HORA_COPIA=16, DIAS_COPIA=30;
+const RX_COPIA=/^copia_clientes_nuevos_(\d{4}-\d{2}-\d{2})\.json$/;
+const soportaCarpeta=()=>typeof window.showDirectoryPicker==="function";
+/** IndexedDB mínimo: solo para recordar la carpeta elegida (localStorage no puede guardarla). */
+function idb(modo,clave,valor){
+  return new Promise((ok,mal)=>{
+    let req;
+    try{ req=indexedDB.open("cn_respaldo",1); }catch(e){ mal(e); return; }
+    req.onupgradeneeded=()=>req.result.createObjectStore("kv");
+    req.onerror=()=>mal(req.error);
+    req.onsuccess=()=>{
+      const db=req.result, tx=db.transaction("kv",modo==="get"?"readonly":"readwrite"), st=tx.objectStore("kv");
+      const r=modo==="get"?st.get(clave):modo==="set"?st.put(valor,clave):st.delete(clave);
+      r.onsuccess=()=>ok(r.result); r.onerror=()=>mal(r.error);
+      tx.oncomplete=()=>db.close();
+    };
+  });
+}
+/** ¿Toca hacer la copia ahora? Desde las 4 p. m. si hoy no hay; o ya mismo si se saltó al menos un día completo. */
+function tocaCopia(ultima,ahora=new Date()){
+  const u=ultima?ultima.slice(0,10):null, hoy=hoyISO(ahora);
+  if(u===hoy) return false;
+  if(ahora.getHours()>=HORA_COPIA) return true;
+  return u!=null && u<hoyISO(new Date(ahora.getTime()-864e5));
+}
+async function escribirCopiaEnCarpeta(dir,texto,fecha){
+  const fh=await dir.getFileHandle(`copia_clientes_nuevos_${fecha}.json`,{create:true});
+  const w=await fh.createWritable(); await w.write(texto); await w.close();
+  // borrar las copias de hace más de 30 días, solo las que creó esta app
+  const limite=hoyISO(new Date(Date.now()-DIAS_COPIA*864e5));
+  try{
+    for await (const [nombre] of dir.entries()){
+      const m=nombre.match(RX_COPIA);
+      if(m&&m[1]<limite) await dir.removeEntry(nombre);
+    }
+  }catch(e){ /* limpiar es opcional */ }
+}
+
 /* ══════════ APP ══════════ */
 function App(){
   const [ini]=useState(leerLocal);   // perezoso: se lee una sola vez, no en cada render
@@ -1725,6 +1996,67 @@ const addAnexos = useCallback(nuevas => {
     }catch(e){ notify("No pude generar el archivo: "+e.message); }
   },[habeas,anexos,escaneos,presu,mapeo,usarAnexos,notify]);
 
+  // ── copia automática diaria
+  const [carpeta,setCarpeta]=useState(null);              // FileSystemDirectoryHandle o null
+  const [permisoCarpeta,setPermisoCarpeta]=useState(null); // "granted" | "prompt" | "denied" | null
+  const [ultimaCopia,setUltimaCopia]=useState(()=>leerPref("ultima_copia",null));
+  const ultimaRef=useRef(ultimaCopia);   // también en memoria: si el navegador no guarda preferencias, no se repite cada minuto
+  const payloadRef=useRef(null);
+  payloadRef.current={tipo:"memoria_clientes_nuevos",version:1,habeas,anexos,escaneos,presupuesto:presu,mapeo,usarAnexos};
+  useEffect(()=>{
+    if(!soportaCarpeta()) return;
+    idb("get","carpeta").then(async h=>{
+      if(!h) return;
+      setCarpeta(h);
+      try{ setPermisoCarpeta(await h.queryPermission({mode:"readwrite"})); }catch(e){ setPermisoCarpeta("prompt"); }
+    }).catch(()=>{});
+  },[]);
+
+  /** Guarda la copia. manual=true viene de un clic, así que puede pedir permiso de la carpeta. */
+  const hacerCopia=useCallback(async manual=>{
+    const ahora=new Date(), fecha=hoyISO(ahora);
+    const texto=JSON.stringify({...payloadRef.current,guardado:ahora.toISOString(),copiaAutomatica:!manual});
+    let donde=null;
+    if(carpeta){
+      try{
+        let per=await carpeta.queryPermission({mode:"readwrite"});
+        if(per!=="granted"&&manual) per=await carpeta.requestPermission({mode:"readwrite"});
+        setPermisoCarpeta(per);
+        if(per==="granted"){ await escribirCopiaEnCarpeta(carpeta,texto,fecha); donde=`la carpeta «${carpeta.name}»`; }
+      }catch(e){ /* sigue con la descarga */ }
+    }
+    if(!donde){   // sin carpeta (o sin permiso): se descarga, para que la copia exista igual
+      bajarBlob(new Blob([texto],{type:"application/json"}),`copia_clientes_nuevos_${fecha}.json`);
+      donde="Descargas";
+    }
+    const u=ahora.toISOString(); ultimaRef.current=u; setUltimaCopia(u); guardarPref("ultima_copia",u);
+    notify(`Copia de seguridad guardada en ${donde}`);
+  },[carpeta,notify]);
+
+  const elegirCarpeta=useCallback(async()=>{
+    try{
+      const h=await window.showDirectoryPicker({id:"copias-clientes-nuevos",mode:"readwrite",startIn:"documents"});
+      await idb("set","carpeta",h);
+      setCarpeta(h); setPermisoCarpeta("granted");
+      notify(`Las copias se guardarán en «${h.name}»`);
+    }catch(e){ if(e&&e.name!=="AbortError") notify("No pude usar esa carpeta: "+e.message); }
+  },[notify]);
+  const quitarCarpeta=useCallback(async()=>{
+    try{ await idb("del","carpeta"); }catch(e){}
+    setCarpeta(null); setPermisoCarpeta(null);
+    notify("Las copias volverán a ir a Descargas");
+  },[notify]);
+
+  // revisar cada minuto si ya toca la copia del día
+  const hayDatosRef=useRef(false);
+  hayDatosRef.current=!!(habeas||anexos.length||escaneos.length);
+  useEffect(()=>{
+    const revisar=()=>{ if(hayDatosRef.current&&tocaCopia(ultimaRef.current)) hacerCopia(false); };
+    const t0=setTimeout(revisar,4000);           // al abrir, dando tiempo a cargar la carpeta
+    const iv=setInterval(revisar,60000);
+    return ()=>{ clearTimeout(t0); clearInterval(iv); };
+  },[hacerCopia]);
+
   const cargarMemoria=useCallback(j=>{
     if(j.habeas) setHabeas(j.habeas);
     if(Array.isArray(j.anexos)) setAnexos(j.anexos);
@@ -1753,17 +2085,10 @@ const addAnexos = useCallback(nuevas => {
     setCapturando(true);
     notify("Preparando el archivo…");
     // esperar a que el navegador repinte con la banda visible y los filtros ocultos
-    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,220))));
+    await esperarPintado();
     let lienzo=null;
     try{
-      const ancho=nodo.scrollWidth, alto=nodo.scrollHeight;
-      // bajar la resolución si el tablero es muy largo, para no agotar la memoria
-      const escala=Math.max(1,Math.min(2,Math.floor(9000000/Math.max(1,ancho*alto))||1));
-      lienzo=await html2canvas(nodo,{
-        scale:escala, backgroundColor:"#f5f7f3", useCORS:true, logging:false,
-        width:ancho, height:alto, windowWidth:ancho, scrollX:0, scrollY:0,
-        imageTimeout:8000, removeContainer:true
-      });
+      lienzo=await lienzoDe(nodo);
     }catch(e){
       setCapturando(false);
       notify("No pude generar la captura: "+(e&&e.message?e.message:"error desconocido"));
@@ -1777,9 +2102,7 @@ const addAnexos = useCallback(nuevas => {
       if(destino==="png"){
         lienzo.toBlob(b=>{
           if(!b){ notify("No pude preparar la imagen."); return; }
-          const url=URL.createObjectURL(b), a=document.createElement("a");
-          a.href=url; a.download=nom+".png"; document.body.appendChild(a); a.click();
-          setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
+          bajarBlob(b,nom+".png");
           notify("Imagen lista para el correo");
         },"image/png");
       }else{
@@ -1818,6 +2141,8 @@ const addAnexos = useCallback(nuevas => {
       onMemoria={cargarMemoria} /* <--- AQUÍ ESTABA EL ERROR (antes decía guardarMemoria) */
       memoria={guardarMemoria} notify={notify} setTab={()=>setModal(null)}
       usarAnexos={usarAnexos} setUsarAnexos={setUsarAnexos}
+      copia={{soporta:soportaCarpeta(),carpeta:carpeta&&carpeta.name,permiso:permisoCarpeta,ultima:ultimaCopia,
+        elegir:elegirCarpeta,quitar:quitarCarpeta,ahora:()=>hacerCopia(true)}}
       guardaLocal={guardaLocal} onLimpiar={()=>{
         if(!confirm("Esto borra la base, los reportes y el presupuesto de este equipo. La memoria que hayas guardado no se toca. ¿Sigues?")) return;
         borrarLocal(); setHabeas(null); setAnexos([]); setEscaneos([]); setPresu({}); setMapeo(MAPEO_INI); notify("Todo borrado");
@@ -1832,6 +2157,11 @@ const addAnexos = useCallback(nuevas => {
         <div className="ttl">Clientes Nuevos<span>Seguimiento de registro y cumplimiento</span></div>
         <div className="hd-r">
           {hechos.corte && <span className="chip">Corte {hechos.corte}</span>}
+          {carpeta && permisoCarpeta && permisoCarpeta!=="granted" && (
+            <button className="hbtn" onClick={()=>hacerCopia(true)} title="La copia automática necesita permiso otra vez para escribir en la carpeta">
+              <span className="dotw"/><span className="hb-t">Reactivar copia</span>
+            </button>
+          )}
           {hayDatos && (
             <div className="mw" onClick={e=>e.stopPropagation()}>
               <button className="hbtn ico" onClick={()=>setMenu(m=>!m)} disabled={capturando}
@@ -1897,7 +2227,7 @@ const addAnexos = useCallback(nuevas => {
 
       <div className={"main"+(capturando?" capturando":"")} ref={capRef}>
         {hayDatos
-          ? <Dashboard hechos={hechos} presu={presu} mapa={mapa} suave={suave} cfgSedes={cfgSedes} capturando={capturando}
+          ? <Dashboard hechos={hechos} presu={presu} mapa={mapa} suave={suave} cfgSedes={cfgSedes} capturando={capturando} notify={notify}
               escaneos={escaneos} ignorar={ignorar}/>
           : <div className="card"><div className="empty">
               <img src={MASCOTA} alt=""/>
