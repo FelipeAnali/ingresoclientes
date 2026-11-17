@@ -37,6 +37,14 @@ No hay nada que compilar ni instalar: es un solo archivo HTML.
 > la casilla *«Sumar los reportes diarios»*; de lo contrario los números salen más altos de
 > lo real. Para saberlo, comparar un mismo mes con y sin la marca.
 
+**Copia de seguridad automática** (en *Datos → Memoria*)
+
+- Cada día desde las 4:00 p. m., con la app abierta, se guarda sola una copia
+  `copia_clientes_nuevos_AAAA-MM-DD.json`. Si un día no se abrió, la copia se hace al abrirla.
+- En Chrome o Edge se puede elegir una carpeta fija (se conservan los últimos 30 días); si no,
+  la copia va a Descargas. Si el navegador pide el permiso otra vez, aparece «Reactivar copia».
+- Para recuperar datos: *Cargar memoria* con la copia del día.
+
 **Ajustes** (el engranaje)
 
 - **Presupuesto**: se digita únicamente el objetivo **mensual** por sede. El diario, el
@@ -49,6 +57,11 @@ No hay nada que compilar ni instalar: es un solo archivo HTML.
 
 - Vistas **Anual / Mensual / Semanal / Día**, con filtro por cluster y por sede.
 - Botón **Exportar a Excel** de la tabla de cumplimiento.
+- Casilla **Detalle de escaneo**: muestra u oculta las columnas Escaneos (IA) y Manuales
+  (el % de escaneo siempre se ve).
+- Botón **Descargar tabla (imagen)**: PNG solo de la tabla, con logo y período, para el correo.
+- Botón **Texto para correo**: arma el texto del correo con lo que se está viendo (resumen,
+  sedes por estado y las de menor escaneo). Se puede corregir y copiar, con o sin la tabla.
 - Botón **Compartir** (cámara): descarga la vista como imagen PNG, la manda a imprimir o
   guardar como PDF, o genera el PDF directamente.
 - Botón **Guardar**: descarga la memoria.
