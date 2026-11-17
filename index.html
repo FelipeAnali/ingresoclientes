@@ -109,7 +109,9 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 .sw-l input:checked,input.sw-i:checked{background:var(--forest)}
 .sw-l input:checked::before,input.sw-i:checked::before{transform:translateX(16px)}
 
-.txc{width:100%;min-height:340px;border:none;border-radius:14px;padding:14px 16px;
+.paso{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted);margin-bottom:10px}
+.paso b{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--forest);color:#fff;font-size:12px}
+.txc{width:100%;min-height:220px;border:none;border-radius:14px;padding:14px 16px;
   font:14px/1.6 var(--font);color:var(--ink);background:#fff;resize:vertical;box-shadow:var(--sombra)}
 .txc:focus{outline:3px solid rgba(125,209,5,.45)}
 
@@ -799,26 +801,17 @@ function bajarBlob(blob,nombre){
 const esperarPintado=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,220))));
 const hoyISO=(d=new Date())=>`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
 
-/** Copia al portapapeles. Con html, Outlook/Gmail pegan la tabla con formato; si no se puede, va solo el texto. */
-async function copiarPortapapeles(texto,html){
+/** Copia texto al portapapeles; si el navegador no deja, usa el método antiguo. */
+async function copiarPortapapeles(texto){
   try{
-    if(html&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){
-      await navigator.clipboard.write([new ClipboardItem({
-        "text/html":new Blob([html],{type:"text/html"}),
-        "text/plain":new Blob([texto],{type:"text/plain"})})]);
-      return true;
-    }
     if(navigator.clipboard&&navigator.clipboard.writeText){ await navigator.clipboard.writeText(texto); return true; }
   }catch(e){ /* sigue con el método antiguo */ }
   try{
-    const el=document.createElement("div");
-    el.contentEditable="true"; el.style.cssText="position:fixed;left:-9999px;top:0;white-space:pre-wrap";
-    if(html) el.innerHTML=html; else el.textContent=texto;
-    document.body.appendChild(el);
-    const r=document.createRange(); r.selectNodeContents(el);
-    const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    const el=document.createElement("textarea");
+    el.value=texto; el.style.cssText="position:fixed;left:-9999px;top:0";
+    document.body.appendChild(el); el.select();
     const ok=document.execCommand("copy");
-    sel.removeAllRanges(); document.body.removeChild(el);
+    document.body.removeChild(el);
     return ok;
   }catch(e){ return false; }
 }
@@ -828,55 +821,28 @@ function leerPref(k,def){ try{ const v=window.localStorage.getItem("cn_pref_"+k)
 function guardarPref(k,v){ try{ window.localStorage.setItem("cn_pref_"+k,JSON.stringify(v)); }catch(e){} }
 
 /* ══════════ texto para el correo ══════════ */
-const escHTML=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
-/** Arma el texto del correo a partir de lo que se está viendo en el tablero. */
-function textoCorreo({filas,k,per,alcance,corte,conEsc,escDesde}){
+/** Texto corto para el correo: el detalle por sede va en la imagen de la tabla. */
+function textoCorreo({k,per,alcance,corte,conEsc,escDesde}){
   const h=new Date().getHours();
-  const orden=[...filas].sort((a,b)=>(b.pct??-1)-(a.pct??-1));
-  const grupo=e=>orden.filter(f=>f.estado===e);
-  const lista=(fs,conFalta)=>fs.map(f=>`   - ${f.sede}: ${pct(f.pct)}`+(conFalta&&f.faltante>0?` (faltan ${fmt2(f.faltante)})`:"")).join("\n");
+  const periodo=per.replace(/^(todos los días|todas las semanas) · /,"");
+  const fCorte=corte?new Date(corte+"T12:00:00").toLocaleDateString("es-CO",{day:"numeric",month:"long"}):null;
   const L=[];
   L.push(h<12?"Buenos días,":h<19?"Buenas tardes,":"Buenas noches,");
   L.push("");
-  L.push(`Comparto el seguimiento de clientes nuevos de ${per}${alcance==="Todas las sedes"?"":` (${alcance})`}, con datos al ${corte||"—"}.`);
+  L.push(`Comparto el seguimiento de clientes nuevos de ${periodo}${alcance==="Todas las sedes"?"":` (${alcance})`}${fCorte?`, con datos al ${fCorte}`:""}.`);
   L.push("");
-  L.push("Resumen:");
-  L.push(`- Inscritos: ${fmt(k.i)}`+(k.o>0?` de un objetivo de ${fmt2(k.o)} (${pct(k.p)}, ${estadoDe(k.p)}).`:" (sin objetivo definido)."));
-  if(k.o>0) L.push(k.fa>0?`- Faltan ${fmt2(k.fa)} para llegar al objetivo.`:"- El objetivo del período se alcanzó.");
-  if(k.conObj>0) L.push(`- Sedes que cumplen: ${k.cum} de ${k.conObj}.`);
-  if(conEsc&&k.ced>0) L.push(`- Escaneo (IA)${escDesde?` desde el ${escDesde}`:""}: ${pct(k.pEsc)} de las cédulas (${fmt(k.esc)} con escaneo y ${fmt(k.man)} manuales).`);
-  const cumplen=grupo("CUMPLE"), riesgo=grupo("EN RIESGO"), no=grupo("NO CUMPLE");
-  if(cumplen.length){ L.push(""); L.push(`Cumplen (${cumplen.length}):`); L.push(lista(cumplen,false)); }
-  if(riesgo.length){ L.push(""); L.push(`En riesgo, entre 85% y 99% (${riesgo.length}):`); L.push(lista(riesgo,true)); }
-  if(no.length){ L.push(""); L.push(`No cumplen, por debajo de 85% (${no.length}):`); L.push(lista(no,true)); }
-  if(conEsc){
-    const bajos=filas.filter(f=>f.pctEsc!=null).sort((a,b)=>a.pctEsc-b.pctEsc).slice(0,3);
-    if(bajos.length){ L.push(""); L.push("Sedes con menor uso del escaneo (IA):");
-      L.push(bajos.map(f=>`   - ${f.sede}: ${pct(f.pctEsc)} (${fmt(f.man)} manuales de ${fmt(f.ced)})`).join("\n")); }
-  }
-  L.push(""); L.push("Quedo atento a cualquier comentario."); L.push(""); L.push("Saludos.");
+  L.push(k.o>0
+    ? `Vamos en ${fmt(k.i)} inscritos de un objetivo de ${fmt(k.o)}: ${pct(k.p)} de cumplimiento.`
+      +(k.conObj===0?"":k.cum===0?` Ninguna de las ${k.conObj} sedes cumple la meta todavía.`
+        :` ${k.cum} de ${k.conObj} ${k.conObj===1?"sede":"sedes"} ${k.cum===1?"cumple":"cumplen"} la meta.`)
+    : `Vamos en ${fmt(k.i)} inscritos.`);
+  if(conEsc&&k.ced>0) L.push(`El escaneo (IA) va en ${pct(k.pEsc)} de las cédulas${escDesde?` (desde el ${escDesde})`:""}.`);
+  L.push("");
+  L.push("En la imagen va el detalle por sede.");
+  L.push("");
+  L.push("Saludos.");
   return L.join("\n");
-}
-
-/** La tabla de cumplimiento en HTML con estilos en línea, para pegarla en el correo. */
-function tablaCorreoHTML(filas,t,conEsc,detalle,escDesde){
-  const orden=[...filas].sort((a,b)=>(b.pct??-1)-(a.pct??-1));
-  const col={"CUMPLE":["#f0fadb","#1C5A2A"],"EN RIESGO":["#fdf3e0","#a86a12"],"NO CUMPLE":["#fdecea","#b8342a"],"SIN OBJETIVO":["#eff1ee","#63735f"]};
-  const th=(x,r)=>`<th style="padding:6px 9px;border-bottom:2px solid #1C5A2A;background:#05200b;color:#ffffff;font-size:11px;text-align:${r?"right":"left"};white-space:nowrap">${x}</th>`;
-  const td=(x,r,ex="")=>`<td style="padding:5px 9px;border-bottom:1px solid #dfe6db;font-size:12px;text-align:${r?"right":"left"};white-space:nowrap;${ex}">${x}</td>`;
-  const est=e=>`<span style="background:${col[e][0]};color:${col[e][1]};font-weight:700;font-size:10.5px;padding:2px 8px;border-radius:9px">${e}</span>`;
-  const esc=f=>!conEsc?"":(detalle?td(f.ced>0?fmt(f.esc):"—",1)+td(f.ced>0?fmt(f.man):"—",1):"")+td(pct(f.pctEsc),1,"font-weight:700");
-  const fila=f=>"<tr>"+td(escHTML(f.sede),0,"font-weight:600")+td(escHTML(f.cluster),0,"color:#63735f")+td(fmt(f.inscritos),1)
-    +td(fmt2(f.objetivo),1)+td(f.faltante==null?"—":f.faltante===0?"✓":fmt2(f.faltante),1,f.faltante>0?"color:#b8342a;font-weight:600":"")
-    +td(pct(f.pct),1,"font-weight:700")+td(est(f.estado),0)+esc(f)+"</tr>";
-  const tot={sede:"TOTAL",cluster:`${filas.length} ${filas.length===1?"sede":"sedes"}`,inscritos:t.i,objetivo:t.o,
-    faltante:t.fa,pct:t.p,estado:estadoDe(t.p),ced:t.ced,esc:t.esc,man:t.man,pctEsc:t.pEsc};
-  return `<table style="border-collapse:collapse;font-family:Arial,sans-serif;color:#05200b"><thead><tr>`
-    +th("Sede")+th("Cluster")+th("Inscritos",1)+th("Objetivo",1)+th("Faltan",1)+th("% Cumplimiento",1)+th("Estado")
-    +(conEsc?(detalle?th("Escaneos (IA)",1)+th("Manuales",1):"")+th(escDesde?`% Escaneo (IA)<br><span style="font-weight:400">desde ${escDesde}</span>`:"% Escaneo (IA)",1):"")
-    +`</tr></thead><tbody>${orden.map(fila).join("")}`
-    +fila(tot).replace("<tr>",'<tr style="background:#eef2ec;font-weight:700">')+`</tbody></table>`;
 }
 
 /* ══════════ gráfica de barras ══════════ */
@@ -1551,31 +1517,42 @@ function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar
   // imagen solo de la tabla, para pegar en el correo
   const tablaRef=useRef(null);
   const [capTabla,setCapTabla]=useState(false);
-  const bajarTabla=async()=>{
-    if(typeof html2canvas!=="function"){ notify("No cargó la herramienta de captura. Revisa la conexión y recarga la página."); return; }
-    setCapTabla(true); notify("Preparando la imagen de la tabla…");
-    await esperarPintado();
+  /** PNG de la tabla (con la banda de logo y período). */
+  const fotoTabla=async()=>{
+    if(typeof html2canvas!=="function") throw new Error("no cargó la herramienta de captura; revisa la conexión y recarga la página");
+    setCapTabla(true);
     try{
+      await esperarPintado();
       const lienzo=await lienzoDe(tablaRef.current);
-      lienzo.toBlob(b=>{
-        if(!b){ notify("No pude preparar la imagen."); return; }
-        bajarBlob(b,`tabla_clientes_nuevos_${hoyISO()}.png`);
-        notify("Imagen de la tabla lista para el correo");
-      },"image/png");
-    }catch(e){ notify("No pude generar la imagen: "+(e&&e.message?e.message:"error desconocido")); }
-    finally{ setCapTabla(false); }
+      const b=await new Promise(r=>lienzo.toBlob(r,"image/png"));
+      if(!b) throw new Error("la imagen salió vacía");
+      return b;
+    }finally{ setCapTabla(false); }
+  };
+  const bajarTabla=async()=>{
+    notify("Preparando la imagen de la tabla…");
+    try{ bajarBlob(await fotoTabla(),`tabla_clientes_nuevos_${hoyISO()}.png`); notify("Imagen de la tabla descargada"); }
+    catch(e){ notify("No pude generar la imagen: "+(e&&e.message?e.message:"error desconocido")); }
+  };
+  /** Copia la imagen para pegarla directo en el correo (Ctrl+V). La promesa se entrega
+      al portapapeles de una vez para no perder el permiso del clic mientras se dibuja. */
+  const copiarTabla=async()=>{
+    if(!(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write)){
+      notify("Este navegador no deja copiar imágenes: usa «Descargar imagen» y adjúntala."); return;
+    }
+    notify("Preparando la imagen de la tabla…");
+    try{
+      await navigator.clipboard.write([new ClipboardItem({"image/png":fotoTabla()})]);
+      notify("Imagen copiada: pégala en el correo con Ctrl+V");
+    }catch(e){ notify("No pude copiar la imagen: usa «Descargar imagen» y adjúntala."); }
   };
 
   // texto listo para el correo
   const [correo,setCorreo]=useState(null);       // null | texto en edición
-  const [conTabla,setConTabla]=useState(()=>leerPref("correo_tabla",true));
-  const abrirCorreo=()=>setCorreo(textoCorreo({filas,k,per,alcance,corte,conEsc,escDesde}));
+  const abrirCorreo=()=>setCorreo(textoCorreo({k,per,alcance,corte,conEsc,escDesde}));
   const copiarCorreo=async()=>{
-    const t=totales(filas);
-    const htmlTxt=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#05200b">${escHTML(correo).replace(/\n/g,"<br>")}</div>`;
-    const html=conTabla?htmlTxt.replace(/(<br>){2}(Quedo atento)/,`<br><br>${tablaCorreoHTML(filas,t,conEsc,detalle,escDesde)}<br>$2`):htmlTxt;
-    const ok=await copiarPortapapeles(correo,html);
-    notify(ok?(conTabla?"Copiado con la tabla: pégalo en el correo":"Texto copiado: pégalo en el correo"):"No pude copiar. Selecciona el texto y cópialo a mano.");
+    const ok=await copiarPortapapeles(correo);
+    notify(ok?"Texto copiado: pégalo en el correo":"No pude copiar. Selecciona el texto y cópialo a mano.");
   };
 
   return (
@@ -1706,16 +1683,16 @@ function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar
               <button className="x" onClick={()=>setCorreo(null)} aria-label="Cerrar">×</button>
             </div>
             <div className="md-b">
-              <div className="note i">Sale de lo que estás viendo en el tablero ({per} · {alcance}). Puedes corregirlo aquí antes de copiarlo.</div>
+              <div className="paso"><b>1</b> Copia el texto y pégalo en el correo. Sale de lo que estás viendo ({per} · {alcance}); puedes corregirlo aquí.</div>
               <textarea className="txc" value={correo} onChange={e=>setCorreo(e.target.value)} spellCheck="false"/>
-              <label className="sw-l" style={{marginTop:10}}>
-                <input type="checkbox" checked={conTabla} onChange={e=>{setConTabla(e.target.checked);guardarPref("correo_tabla",e.target.checked);}}/>
-                Incluir la tabla de cumplimiento (Outlook y Gmail la pegan con formato)
-              </label>
-              <div className="row" style={{marginTop:14}}>
-                <button className="btn lime" onClick={copiarCorreo}>Copiar para el correo</button>
+              <div className="row" style={{marginTop:10}}>
+                <button className="btn lime" onClick={copiarCorreo}>Copiar texto</button>
                 <button className="btn gh" onClick={abrirCorreo}>Volver a generar</button>
-                <button className="btn gh" onClick={bajarTabla}>Descargar tabla (imagen)</button>
+              </div>
+              <div className="paso" style={{marginTop:20}}><b>2</b> Agrega la imagen de la tabla: cópiala y pégala debajo del texto (Ctrl+V), o descárgala y adjúntala.</div>
+              <div className="row">
+                <button className="btn lime" onClick={copiarTabla}>Copiar imagen de la tabla</button>
+                <button className="btn gh" onClick={bajarTabla}>Descargar imagen</button>
               </div>
             </div>
           </div>
