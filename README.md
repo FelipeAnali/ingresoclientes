@@ -60,8 +60,8 @@ No hay nada que compilar ni instalar: es un solo archivo HTML.
 - Casilla **Detalle de escaneo**: muestra u oculta las columnas Escaneos (IA) y Manuales
   (el % de escaneo siempre se ve).
 - Botón **Descargar tabla (imagen)**: PNG solo de la tabla, con logo y período, para el correo.
-- Botón **Texto para correo**: arma el texto del correo con lo que se está viendo (resumen,
-  sedes por estado y las de menor escaneo). Se puede corregir y copiar, con o sin la tabla.
+- Botón **Texto para correo**: un correo corto (resultado del período y % de escaneo) para
+  copiar, más **Copiar imagen de la tabla** para pegarla con Ctrl+V debajo del texto.
 - Botón **Compartir** (cámara): descarga la vista como imagen PNG, la manda a imprimir o
   guardar como PDF, o genera el PDF directamente.
 - Botón **Guardar**: descarga la memoria.
