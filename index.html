@@ -454,6 +454,7 @@ function fechaExcel(v){
   return isNaN(d)?null:`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
 }
 const partes=f=>({y:+f.slice(0,4),m:+f.slice(5,7),d:+f.slice(8,10)});
+const fechaCorta=f=>`${+f.slice(8,10)} ${MES_C[+f.slice(5,7)-1].toLowerCase()}`;
 
 /* ══════════ exportar / importar ══════════ */
 function bajarXLSX(filas,hoja,archivo,anchos){
@@ -830,7 +831,7 @@ function guardarPref(k,v){ try{ window.localStorage.setItem("cn_pref_"+k,JSON.st
 const escHTML=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
 /** Arma el texto del correo a partir de lo que se está viendo en el tablero. */
-function textoCorreo({filas,k,per,alcance,corte,conEsc}){
+function textoCorreo({filas,k,per,alcance,corte,conEsc,escDesde}){
   const h=new Date().getHours();
   const orden=[...filas].sort((a,b)=>(b.pct??-1)-(a.pct??-1));
   const grupo=e=>orden.filter(f=>f.estado===e);
@@ -844,7 +845,7 @@ function textoCorreo({filas,k,per,alcance,corte,conEsc}){
   L.push(`- Inscritos: ${fmt(k.i)}`+(k.o>0?` de un objetivo de ${fmt2(k.o)} (${pct(k.p)}, ${estadoDe(k.p)}).`:" (sin objetivo definido)."));
   if(k.o>0) L.push(k.fa>0?`- Faltan ${fmt2(k.fa)} para llegar al objetivo.`:"- El objetivo del período se alcanzó.");
   if(k.conObj>0) L.push(`- Sedes que cumplen: ${k.cum} de ${k.conObj}.`);
-  if(conEsc&&k.ced>0) L.push(`- Escaneo (IA): ${pct(k.pEsc)} de las cédulas (${fmt(k.esc)} con escaneo y ${fmt(k.man)} manuales).`);
+  if(conEsc&&k.ced>0) L.push(`- Escaneo (IA)${escDesde?` desde el ${escDesde}`:""}: ${pct(k.pEsc)} de las cédulas (${fmt(k.esc)} con escaneo y ${fmt(k.man)} manuales).`);
   const cumplen=grupo("CUMPLE"), riesgo=grupo("EN RIESGO"), no=grupo("NO CUMPLE");
   if(cumplen.length){ L.push(""); L.push(`Cumplen (${cumplen.length}):`); L.push(lista(cumplen,false)); }
   if(riesgo.length){ L.push(""); L.push(`En riesgo, entre 85% y 99% (${riesgo.length}):`); L.push(lista(riesgo,true)); }
@@ -859,7 +860,7 @@ function textoCorreo({filas,k,per,alcance,corte,conEsc}){
 }
 
 /** La tabla de cumplimiento en HTML con estilos en línea, para pegarla en el correo. */
-function tablaCorreoHTML(filas,t,conEsc,detalle){
+function tablaCorreoHTML(filas,t,conEsc,detalle,escDesde){
   const orden=[...filas].sort((a,b)=>(b.pct??-1)-(a.pct??-1));
   const col={"CUMPLE":["#f0fadb","#1C5A2A"],"EN RIESGO":["#fdf3e0","#a86a12"],"NO CUMPLE":["#fdecea","#b8342a"],"SIN OBJETIVO":["#eff1ee","#63735f"]};
   const th=(x,r)=>`<th style="padding:6px 9px;border-bottom:2px solid #1C5A2A;background:#05200b;color:#ffffff;font-size:11px;text-align:${r?"right":"left"};white-space:nowrap">${x}</th>`;
@@ -873,7 +874,7 @@ function tablaCorreoHTML(filas,t,conEsc,detalle){
     faltante:t.fa,pct:t.p,estado:estadoDe(t.p),ced:t.ced,esc:t.esc,man:t.man,pctEsc:t.pEsc};
   return `<table style="border-collapse:collapse;font-family:Arial,sans-serif;color:#05200b"><thead><tr>`
     +th("Sede")+th("Cluster")+th("Inscritos",1)+th("Objetivo",1)+th("Faltan",1)+th("% Cumplimiento",1)+th("Estado")
-    +(conEsc?(detalle?th("Escaneos (IA)",1)+th("Manuales",1):"")+th("% Escaneo (IA)",1):"")
+    +(conEsc?(detalle?th("Escaneos (IA)",1)+th("Manuales",1):"")+th(escDesde?`% Escaneo (IA)<br><span style="font-weight:400">desde ${escDesde}</span>`:"% Escaneo (IA)",1):"")
     +`</tr></thead><tbody>${orden.map(fila).join("")}`
     +fila(tot).replace("<tr>",'<tr style="background:#eef2ec;font-weight:700">')+`</tbody></table>`;
 }
@@ -1017,7 +1018,7 @@ function MultiSelect({label,opciones,sel,onChange,textoTodas,render}){
 }
 
 /* ══════════ tabla de sedes ══════════ */
-function TablaSedes({filas,vista,conEsc,detalle}){
+function TablaSedes({filas,vista,conEsc,detalle,escDesde}){
   const [sort,setSort]=useState({c:"pct",d:-1});
   const orden=useMemo(()=>{
     const a=[...filas];
@@ -1049,7 +1050,7 @@ function TablaSedes({filas,vista,conEsc,detalle}){
           <th>Estado</th>
           {conEsc && detalle && th("esc","Escaneos (IA)","r esc-col")}
           {conEsc && detalle && th("man","Manuales","r")}
-          {conEsc && th("pctEsc","% Escaneo (IA)","r"+(detalle?"":" esc-col"))}
+          {conEsc && th("pctEsc",escDesde?`% Escaneo (IA) · desde ${escDesde}`:"% Escaneo (IA)","r"+(detalle?"":" esc-col"))}
         </tr></thead>
         <tbody>
           {orden.map(f=>(
@@ -1090,6 +1091,7 @@ function TablaSedes({filas,vista,conEsc,detalle}){
         <div className="nota-pie">
           % Escaneo (IA) = cédulas registradas con escaneo ÷ total de cédulas (escaneadas + manuales) en el período.
           Sale de los reportes de adopción de escaneo; «—» quiere decir que esa sede no tiene reporte en ese período.
+          {escDesde && <> Los reportes empiezan el {escDesde}: antes de esa fecha no hay datos de escaneo, por eso el % solo cubre desde ese día.</>}
         </div>
       )}
       {t.nSin>0 && (
@@ -1420,6 +1422,17 @@ function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar
   useEffect(()=>{ setSemanas(prev=>prev.filter(w=>w<=nSem)); setDias(prev=>prev.filter(d=>d<=nDia)); },[anio,mesRef]);
 
   const conEsc=(escaneos||[]).length>0;
+  // No hay histórico de escaneo: si el período empieza antes del primer reporte,
+  // el % solo cubre desde ese día y se avisa con «desde 13 oct».
+  const primerEsc=useMemo(()=>(escaneos||[]).reduce((a,r)=>(!a||r.f<a)?r.f:a,null),[escaneos]);
+  const inicioPer=(()=>{
+    const m=vista==="anual"||!meses.length?1:Math.min(...meses);
+    let d=1;
+    if(vista==="semanal"&&semanas.length) d=diasDeSemana(anio,m,Math.min(...semanas))[0]||1;
+    if(vista==="diario"&&dias.length) d=Math.min(...dias);
+    return `${anio}-${p2(m)}-${p2(d)}`;
+  })();
+  const escDesde=conEsc&&primerEsc&&primerEsc>inicioPer&&primerEsc.slice(0,4)===String(anio)?fechaCorta(primerEsc):null;
   const filasTodas=useMemo(()=>{
     const per={vista,anio,meses,semanas,dias};
     const esc=conEsc?escaneosPorSede(escaneos,ignorar,mapa,suave,per):null;
@@ -1556,11 +1569,11 @@ function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar
   // texto listo para el correo
   const [correo,setCorreo]=useState(null);       // null | texto en edición
   const [conTabla,setConTabla]=useState(()=>leerPref("correo_tabla",true));
-  const abrirCorreo=()=>setCorreo(textoCorreo({filas,k,per,alcance,corte,conEsc}));
+  const abrirCorreo=()=>setCorreo(textoCorreo({filas,k,per,alcance,corte,conEsc,escDesde}));
   const copiarCorreo=async()=>{
     const t=totales(filas);
     const htmlTxt=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#05200b">${escHTML(correo).replace(/\n/g,"<br>")}</div>`;
-    const html=conTabla?htmlTxt.replace(/(<br>){2}(Quedo atento)/,`<br><br>${tablaCorreoHTML(filas,t,conEsc,detalle)}<br>$2`):htmlTxt;
+    const html=conTabla?htmlTxt.replace(/(<br>){2}(Quedo atento)/,`<br><br>${tablaCorreoHTML(filas,t,conEsc,detalle,escDesde)}<br>$2`):htmlTxt;
     const ok=await copiarPortapapeles(correo,html);
     notify(ok?(conTabla?"Copiado con la tabla: pégalo en el correo":"Texto copiado: pégalo en el correo"):"No pude copiar. Selecciona el texto y cópialo a mano.");
   };
@@ -1639,7 +1652,7 @@ function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar
           <div className="dt">con objetivo definido</div></div>
         {conEsc && <div className="kpi"><div className="lb">% Escaneo (IA)</div>
           <div className="vl num" style={{color:k.pEsc==null?"var(--muted-2)":"var(--forest)"}}>{pct(k.pEsc)}</div>
-          <div className="dt">{k.ced>0?`${fmt(k.esc)} de ${fmt(k.ced)} cédulas`:"sin reporte en este período"}</div></div>}
+          <div className="dt">{k.ced>0?`${fmt(k.esc)} de ${fmt(k.ced)} cédulas${escDesde?` · desde el ${escDesde}`:""}`:"sin reporte en este período"}</div></div>}
       </div>
 
       <div className="card">
@@ -1682,7 +1695,7 @@ function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar
           {vista==="diario"  && `Objetivo diario = objetivo mensual ÷ ${diasMes(anio,mesRef)} días.`}
           <span className="no-cap">{" "}Toca un encabezado para ordenar.</span>
         </div>
-        <TablaSedes filas={filas} vista={vista} conEsc={conEsc} detalle={detalle}/>
+        <TablaSedes filas={filas} vista={vista} conEsc={conEsc} detalle={detalle} escDesde={escDesde}/>
       </div>
 
       {correo!=null && (
