@@ -75,7 +75,9 @@ No hay nada que compilar ni instalar: es un solo archivo HTML.
 | Mensual  | objetivo del mes completo |
 | Anual    | suma de los 12 objetivos mensuales |
 
-**Faltan** = objetivo − inscritos (nunca es negativo).
+**Faltan** = objetivo − inscritos (nunca es negativo). En el total, lo que una sede pasa de su meta
+compensa lo que les falta a otras, así que el total es la resta directa del objetivo menos los inscritos.
+Los inscritos de sedes sin presupuesto se muestran pero no se restan (el tablero dice cuántos son).
 
 **% Escaneo (IA)** = escaneos (IA) ÷ cédulas de la sede en el período elegido. Se suman los
 conteos de los días que caen en el filtro (día, semana, mes o año) y luego se divide, así el
