@@ -785,7 +785,9 @@ function totales(filas){
   const i     =filas.reduce((a,f)=>a+f.inscritos,0);      // todos los inscritos
   const iComp =conObj.reduce((a,f)=>a+f.inscritos,0);     // solo los comparables
   const o     =conObj.reduce((a,f)=>a+f.objetivo,0);
-  const fa    =conObj.reduce((a,f)=>a+(f.faltante||0),0);
+  // Faltan del grupo = objetivo − inscritos que se pueden medir. Lo que una sede pasa de su meta
+  // compensa lo que les falta a otras, para que el total cuadre con la resta que hace cualquiera.
+  const fa    =Math.max(0,Math.round((o-iComp)*100)/100);
   const ced=filas.reduce((a,f)=>a+(f.ced||0),0);
   const esc=filas.reduce((a,f)=>a+(f.esc||0),0);
   return {i,iComp,o,fa,nCon:conObj.length,nSin:filas.length-conObj.length,
@@ -1076,9 +1078,11 @@ function TablaSedes({filas,vista,conEsc,detalle,escDesde}){
           {t.nCon===0
             ? <>Ninguna de las {t.nSin} sedes tiene presupuesto en este período, por eso no hay porcentaje de
                cumplimiento. Los inscritos sí se muestran completos. Defínelo en Ajustes → Presupuesto.</>
-            : <>El % compara únicamente las {t.nCon} sedes con objetivo definido ({fmt(t.iComp)} inscritos).
-               Las otras {t.nSin} aparecen en la tabla y suman en «Inscritos», pero no entran en el porcentaje
-               porque no hay presupuesto contra el cual medirlas.</>}
+            : <>El % y «Faltan» comparan únicamente {t.nCon===1?"la sede":`las ${t.nCon} sedes`} con objetivo definido ({fmt(t.iComp)} inscritos):{" "}
+               {t.iComp>=t.o?<>el objetivo de {fmt2(t.o)} se superó por {fmt2(t.iComp-t.o)}.</>
+                 :<>faltan = {fmt2(t.o)} − {fmt(t.iComp)} = {fmt2(t.fa)}.</>}{" "}
+               {t.nSin===1?"La otra sede aparece":`Las otras ${t.nSin} aparecen`} en la tabla y {t.nSin===1?"suma":"suman"} en
+               «Inscritos» ({fmt(t.i-t.iComp)} más), pero no se restan del objetivo porque no tienen presupuesto.</>}
         </div>
       )}
     </div>
@@ -1626,15 +1630,17 @@ function Dashboard({hechos,presu,mapa,suave,cfgSedes,capturando,escaneos,ignorar
 
       <div className="kpis">
         <div className="kpi dark"><div className="lb">Inscritos</div><div className="vl num">{fmt(k.i)}</div>
-          <div className="dt">{per}</div></div>
+          <div className="dt">{per}{k.nCon>0&&k.i>k.iComp?` · ${fmt(k.i-k.iComp)} de sedes sin objetivo`:""}</div></div>
         <div className="kpi"><div className="bar"/><div className="lb">Objetivo</div><div className="vl num">{fmt2(k.o)}</div>
           <div className="dt">{alcance}</div></div>
         <div className="kpi"><div className="lb">Faltan</div>
           <div className="vl num" style={{color:k.fa>0?"var(--red)":"var(--forest)"}}>{k.fa>0?fmt2(k.fa):"0"}</div>
-          <div className="dt">{k.fa>0?"para llegar al objetivo":"objetivo alcanzado"}</div></div>
+          <div className="dt">{k.fa>0
+            ?(k.i>k.iComp?`objetivo − ${fmt(k.iComp)} inscritos de sedes con objetivo`:"para llegar al objetivo")
+            :"objetivo alcanzado"}</div></div>
         <div className="kpi"><div className="lb">% Cumplimiento</div>
           <div className="vl num" style={{color:k.p==null?"var(--muted-2)":k.p>=1?"var(--forest)":"var(--red)"}}>{pct(k.p)}</div>
-          <div className="dt">{k.nSin>0?`${estadoDe(k.p)} · sobre ${k.nCon} sedes con objetivo`:estadoDe(k.p)}</div></div>
+          <div className="dt">{k.nSin>0?`${estadoDe(k.p)} · sobre ${k.nCon} ${k.nCon===1?"sede":"sedes"} con objetivo`:estadoDe(k.p)}</div></div>
         <div className="kpi"><div className="lb">Sedes que cumplen</div>
           <div className="vl num">{k.cum}<span style={{fontSize:15,color:"var(--muted-2)"}}> / {k.conObj}</span></div>
           <div className="dt">con objetivo definido</div></div>
