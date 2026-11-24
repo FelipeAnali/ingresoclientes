@@ -383,6 +383,10 @@ const MAPEO_INI=[
  ["ZARZAL-LOS ALMENDROS","SC ZARZAL","Supermercado"],
  ["CARTAGO-CINEMAS","CINEMAS CARTAGO",NO_INCLUIR],
  ["ZARZAL-CINEMAS","CINEMAS ZARZAL",NO_INCLUIR],
+ // Santiago Plaza no entra en el seguimiento (como los cinemas)
+ ["SANTIAGO PLAZA-CALI-GUADALUPE","SANTIAGO PLAZA-CALI-GUADALUPE",NO_INCLUIR],
+ ["SANTIAGO PLAZA-CALI-VILLACOLOMBIA","SANTIAGO PLAZA-CALI-VILLACOLOMBIA",NO_INCLUIR],
+ ["SANTIAGO PLAZA-CARTAGO","SANTIAGO PLAZA-CARTAGO",NO_INCLUIR],
 ].map(([o,s,c])=>({origen:o,sede:s,cluster:c}));
 
 /** Clave tolerante: ignora tildes, muletillas (los/las/de…), z vs s y signos.
@@ -430,7 +434,10 @@ function migrarMapeo(m){
     if(vistas.has(sd)) continue;
     vistas.add(sd); out.push({origen:x.origen,sede:sd,cluster:cl});
   }
-  return out.length?out:MAPEO_INI;
+  if(!out.length) return MAPEO_INI;
+  // sedes «(no incluir)» que se agregaron después: llegan también a las configuraciones ya guardadas
+  for(const x of MAPEO_INI) if(x.cluster===NO_INCLUIR&&!vistas.has(x.sede)) out.push({...x});
+  return out;
 }
 
 /* ══════════ utilidades ══════════ */
